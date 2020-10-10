@@ -4,7 +4,7 @@
 set -ex
 set -o pipefail
 
-COMMIT_MSG=$(git log -1 --pretty=%B | tr '/.' '__')
+COMMIT_MSG=$(git log -1 --pretty=%B | tr '/. ' '___')
 COMMIT_SHA=$(git rev-parse --short HEAD)
 WORKDIR=${COMMIT_SHA}_${COMMIT_MSG}
 export BENCHDIR=$(find ~ -name "cpu2017_runner" -type d -maxdepth 3 | head -n 1)  # needed by run_test.py # this is peak research code
