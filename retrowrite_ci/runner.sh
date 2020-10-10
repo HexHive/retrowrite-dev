@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# This file is run by the custom runner on every commit pushed
+# It runs SPEC CPU 2017 benchmarks on the aarch64 architecture.
+# It supports sending the derived plot on telegram, provinding
+# a bot key in ~/.telegram_botkey and your chat ID with the bot
+# in ~/.telegram_uid.
+
+# This script is run by .github/workflows/actions.yml
+
+
 
 set -ex
 set -o pipefail
