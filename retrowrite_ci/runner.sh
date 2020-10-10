@@ -19,10 +19,10 @@ cd $WORKDIR
 
 exec 1>log
 
-rm  $BENCHDIR/result/*  # erase all previous logs
+rm  $BENCHDIR/result/* || true  # erase all previous logs (do not fail)
 
 cd ..
-mv ../arm ../bin ../share ../third-party ./
+cp -r retrowrite_ci/* ./
 bash rewrite_all.sh asan      # produce rewritten files in folder bins_rw
 BINARIES=$(find bins_rw -executable -type f)
 python3 run_test.py $BINARIES | tee runcpu_cmd # place those binaries in the spec cpu2017 folder
