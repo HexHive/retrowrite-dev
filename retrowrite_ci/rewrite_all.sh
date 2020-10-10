@@ -7,7 +7,6 @@ set -e
 
 [[ -d ~/bins ]] || { echo "~/bins folder not found, exiting..." && exit 1 ; }
 
-source bin/activate
 mkdir -p bins_rw
 
 for binary_full in ~/bins/*; do
