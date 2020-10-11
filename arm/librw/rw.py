@@ -548,7 +548,6 @@ class Symbolizer():
         reg_name = instruction.reg_writes()[0]
         diff = base - orig_off
         op = '-' if diff > 0 else '+'
-        # if secname == ".got": secname = ".fake_got" # the got is special, as it
         secname = secname + "_start"
         # will get overwritten by the compiler after reassembly. We introduce a 
         # "fake_got" label so that we keep track of where the "old" got section was
@@ -660,24 +659,22 @@ class Symbolizer():
             # XXX: add support for ldp
             if inst2.mnemonic == "ldr" and inst2.cs.reg_name(inst2.cs.operands[1].reg) == "x29" and\
                     inst2.cs.operands[1].mem.disp in p.stack_stores:
+                        paths.append(path(new_reg, p.idx + 1, [], p.orig_off, copy.deepcopy(p.visited)))
                 debug(f"Found stack load at {inst2}, from {inst}!")
                 new_reg = inst2.cs.reg_name(inst2.cs.operands[0].reg)
-                paths.append(path(new_reg, p.idx + 1, [], p.orig_off, copy.deepcopy(p.visited)))
 
             if p.orig_reg in inst2.reg_reads():
                 if inst2.instrumented or '=' in inst2.op_str:  # XXX: ugly hack to avoid reinstrumenting instructions
                     del paths[0]
                     continue
                 raddr = self._get_resolved_address(p.function, inst, inst2, p)
-                # if inst.address == 0x148b3c:
-                    # import IPython; IPython.embed()
                 if isinstance(raddr, tuple):  # a global pointer was pushed on the stack
                     addr, disp = raddr
                     debug(f"Found new stack store at addr {hex(inst.address)} on x29 + {hex(disp)}")
                     p.stack_stores += [disp]
                 elif isinstance(raddr, str):  # the register we're tracking has been changed
                     paths.append(path(raddr, p.idx + 1, p.stack_stores[:], p.orig_off, copy.deepcopy(p.visited), function))
-                elif raddr: # a global pointer was just used normally 
+                elif raddr:                   # a global pointer was just used normally 
                     resolved_addresses += [(inst2, raddr)]
                 else:
                     critical(f"Missed global resolved address on {inst2} from {inst}")
@@ -742,11 +739,11 @@ class Symbolizer():
                 return
 
 
-        # if we got here, it's *very* bad, as we're *still* not sure which section the global variable is in,
-        # or that section is the .text section. 
+        # if we got here, it's *very* bad, as we're *still* not sure which
+        # section the global variable is in, or that section is the .text
+        # section. 
         # As our last hope we try to ugly-hack-patch all instructions that use the register with the
         # global address loaded (instructions in the resolved_addresses list)
-
         debug(f"WARNING: trying to fix each instruction manually...")
 
 
@@ -783,7 +780,7 @@ class Symbolizer():
                 if reg_name2 == orig_reg:  # str <orig_reg>, [...]
                     inst2.instrument_before(InstrumentedInstruction(
                         f"ldr {reg_name2}, =.LC%x" % (resolved_address)))
-                else: # str ..., [<orig_reg> + ...]
+                else:                      # str ..., [<orig_reg> + ...]
                     inst2.mnemonic =  "ldr"
                     inst2.op_str =  reg_name3 + f", =.LC%x" % (resolved_address)
                     inst2.instrument_after(InstrumentedInstruction(
@@ -795,7 +792,6 @@ class Symbolizer():
                     reg_name2 = get_64bits_reg(reg_name2)
                 inst2.op_str =  reg_name2 + f", =.LC%x" % (resolved_address)
                 if dereference_resolved:
-                    if reg_name2.startswith("w"): reg_name2 = 'x' + reg_name2[1:] #XXX: fix this ugly hack
                     inst2.instrument_after(InstrumentedInstruction(
                         f"ldr {reg_name2}, [{reg_name2}]"))
 

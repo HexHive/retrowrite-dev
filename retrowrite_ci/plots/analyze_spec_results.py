@@ -85,19 +85,26 @@ def plot(outf):
 def plot_diff(outf):
     csvf = outf + ".csv"
     df = pandas.read_csv(csvf)
-    df = df.set_index("benchmark")
-    heads = list(df.columns.values)
-    sidx = heads.index("Source Asan")
-    bidx = heads.index("Binary Asan")
-    vidx = heads.index("Valgrind")
+    for i in range(len(df.iloc[:])):
+        for x in range(2, len(df.columns.values)):
+            df.iloc[i, x] /= df.iloc[i]["Baseline"]
 
-    val = df.values
-    bin_vs_src = 100.0 * ((val[:, bidx] - val[:, sidx]) / val[:, sidx])
-    bin_vs_vgrind = 100.0 * ((val[:, bidx] - val[:, vidx]) / val[:, bidx])
-    print(val)
-    print(heads)
-    print(bin_vs_src)
-    print(bin_vs_vgrind)
+    print(df)
+
+    # import IPython; IPython.embed() 
+    # df = df.set_index("benchmark")
+    # heads = list(df.columns.values)
+    # sidx = heads.index("Source Asan")
+    # bidx = heads.index("Binary Asan")
+    # vidx = heads.index("Valgrind")
+
+    # val = df.values
+    # bin_vs_src = 100.0 * ((val[:, bidx] - val[:, sidx]) / val[:, sidx])
+    # bin_vs_vgrind = 100.0 * ((val[:, bidx] - val[:, vidx]) / val[:, bidx])
+    # print(val)
+    # print(heads)
+    # print(bin_vs_src)
+    # print(bin_vs_vgrind)
 
 
 if __name__ == "__main__":
@@ -127,4 +134,4 @@ if __name__ == "__main__":
         ascii_pp(args.out)
     if args.plot:
         plot(args.out)
-        # plot_diff(args.out)
+        plot_diff(args.out)
