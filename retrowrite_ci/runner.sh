@@ -10,7 +10,7 @@
 
 
 
-set -ex
+set -eux
 set -o pipefail
 
 COMMIT_MSG=$(git log -1 --pretty=%B | tr '/. ' '___')
@@ -21,31 +21,45 @@ export BENCHDIR=$(find ~ -name "cpu2017_runner" -type d -maxdepth 3 | head -n 1)
 
 [[ $(echo $COMMIT_MSG | grep -ic "Experiment") -eq 0 ]] && exit 0  # if "Experiment" is not in the commit message, quit
 [[ ${#BENCHDIR} -eq 0 ]] && echo "cpu2017_runner folder not found. Please store it in your home folder!" && exit 1
+
+# prerequisites
 sudo apt install libjpeg-dev zlib1g-dev poppler-utils -y 
 PIP_IGNORE_INSTALLED=0 pip3 install cython matplotlib pandas capstone pyelftools archinfo intervaltree 
 
+# redirect stdout to log file to avoid cluttering CI console
 mkdir -p $WORKDIR
-cd $WORKDIR
+exec 1>$WORKDIR/log
 
-exec 1>log
+# fail-safe in case of error
+mkdir -p ~/error
+trap "tar xvf ~/error/$WORKDIR.tar * ; exit 1" ERR
 
-rm  $BENCHDIR/result/* || true  # erase all previous logs (do not fail)
 
-cd ..
+# erase all previous benchmark logs (do not fail)
+rm  $BENCHDIR/result/* || true  
+
+
+# run retrowrite on binaries
 cp -r retrowrite_ci/* ./
-bash rewrite_all.sh asan      # produce rewritten files in folder bins_rw
+bash rewrite_all.sh noasan      # put rewritten files in folder bins_rw
+
+# prepare spec cpu benchmark
 BINARIES=$(find bins_rw -executable -type f)
 export ASAN_OPTIONS=detect_leaks=0  # do not print ASAN leak report
 python3 run_test.py $BINARIES | tee runcpu_cmd # place those binaries in the spec cpu2017 folder
+
+# run benchmark
 tail -n 1 runcpu_cmd | source /dev/stdin
 
 mv bins_rw $WORKDIR/
 cp -r plots $WORKDIR/
-cd $WORKDIR
 
+# gather plot data
+cd $WORKDIR
 cp $BENCHDIR/result/* plots/
 cat plots/CPU2017.001.*.txt > plots/bASAN.txt || true
 
+# generate plot
 cd plots
 python3 analyze_spec_results.py --inputs baseline.088_099.txt symbolized.090_096.txt source_asan.040.txt bASAN.txt --plot out --pp
 
@@ -53,6 +67,7 @@ pdftoppm -jpeg -r 300 out.pdf plot_image
 
 
 
+# send to telegram
 if [[ -f ~/.telegram_uid && -f ~/.telegram_botkey ]]; then
 	USERID=$(cat ~/.telegram_uid | tr -d "\n")
 	KEY=$(cat ~/.telegram_botkey | tr -d "\n")
@@ -64,6 +79,7 @@ if [[ -f ~/.telegram_uid && -f ~/.telegram_botkey ]]; then
 	curl -s --max-time $TIMEOUT -F document=@"plot_image-1.jpg" "$URL/sendDocument?chat_id=$USERID" > /dev/null
 fi
 																		   
+# save folder with logs and data to home
 cd ../..
 mkdir -p ~/result
 mv $WORKDIR ~/result/
