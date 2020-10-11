@@ -501,6 +501,7 @@ class InstructionWrapper():
         self.mnemonic = instruction.mnemonic
         self.op_str = instruction.op_str
         self.sz = instruction.size
+        self.instrumented = False
 
         # Instrumentation cache for this instruction
         self.before = list()
@@ -573,7 +574,7 @@ class DataSection():
         self.sz = sz
         self.bytes = bytes
         self.relocations = list()
-        self.align = align
+        self.align = max(12, align)  # we want to be _at least_ page aligned
         self.named_globals = defaultdict(list)
 
     def load(self):
@@ -605,7 +606,6 @@ class DataSection():
         bytes_read = [x.value for x in self.cache[cacheoff:cacheoff + sz]]
         bytes_read_padded = bytes_read + [0]*(sz - len(bytes_read))
 
-        
         # https://docs.python.org/2/library/struct.html
         if sz == 1: letter = "B"
         elif sz == 2: letter = "H"
@@ -643,10 +643,11 @@ class DataSection():
         results = []
         results.append(".section {}".format(self.name))
 
-        # fake got is a way to evade relocation hell.
+        # if self.name == '.got':
+            # results.append(".fake_got:")
+        # this is a way to evade relocation hell.
         # see the comment in _adjust_adrp_section_pointer() for more
-        if self.name == '.got':
-            results.append(".fake_got:")
+        results.append("{}_start:".format(self.name))
 
         if self.name != ".fini_array":
             results.append(".align {}".format(self.align))

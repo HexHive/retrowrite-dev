@@ -52,6 +52,9 @@ class Rewriter():
         "_ITM_registerTMCloneTable"
     ]
 
+    literal_saves = 0
+    total_globals = 0
+
 
     # DATASECTIONS = [".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
     # DATASECTIONS = [".got", ".fini_array",  ".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
@@ -88,7 +91,7 @@ class Rewriter():
             function.update_instruction_count()
             function.fix_jmptbl_size(self.container)
 
-        if total_jumps_fixed: 
+        if total_jumps_fixed:
             info(f"Fixed a total of {total_jumps_fixed} short jumps")
 
         results = list()
@@ -117,6 +120,7 @@ class Rewriter():
         with open(self.outfile, 'w') as outfd:
             outfd.write("\n".join(results + ['']))
 
+        info(f"Saved {Rewriter.literal_saves} out of {Rewriter.total_globals} global accesses ({Rewriter.literal_saves / Rewriter.total_globals * 100}% )")
         info(f"Success: retrowritten assembly to {self.outfile}")
 
 
@@ -516,7 +520,7 @@ class Symbolizer():
 
         return False
 
-    def _adjust_adrp_section_pointer(self, container, secname, orig_off, instruction):
+    def _adjust_adrp_section_pointer_bis(self, container, secname, orig_off, instruction):
         # we adjust things like adrp x0, 0x10000 (start of .bss)
         # to stuff like  ldr x0, =(.bss - (offset))
         # to make global variables work
@@ -525,12 +529,35 @@ class Symbolizer():
         reg_name = instruction.reg_writes()[0]
         diff = base - orig_off
         op = '-' if diff > 0 else '+'
-        if secname == ".got": secname = ".fake_got" # the got is special, as it
+        # if secname == ".got": secname = ".fake_got" # the got is special, as it
+        secname = secname + "_start"
         # will get overwritten by the compiler after reassembly. We introduce a 
         # "fake_got" label so that we keep track of where the "old" got section was
         instruction.mnemonic = "ldr"
         instruction.op_str = "%s, =(%s %c 0x%x)"  % (reg_name, secname, op, abs(diff))
         instruction.instrumented = True
+
+    def _adjust_adrp_section_pointer(self, container, secname, orig_off, instruction):
+        assert instruction.mnemonic.startswith("adr")
+        # if secname == ".got" or secname == ".data": # .got and .data get wasted by the compiler
+            # self._adjust_adrp_section_pointer_bis(container, secname, orig_off, instruction)
+            # return
+
+        Rewriter.literal_saves += 1
+        base = container.sections[secname].base
+        reg_name = instruction.reg_writes()[0]
+        diff = base - orig_off
+        op = '-' if diff > 0 else '+'
+        # if secname == ".got": secname = ".fake_got" # the got is special, as it
+        secname = secname + "_start"
+        # will get overwritten by the compiler after reassembly. We introduce a 
+        # "fake_got" label so that we keep track of where the "old" got section was
+        pages = (abs(diff) // 4096) * 4096
+        instruction.instrument_before(InstrumentedInstruction(f"\tadrp {reg_name}, ({secname} {op} {pages})"))
+        instruction.mnemonic = "add" if op == "+" else "sub"
+        instruction.op_str = "%s, %s, %s"  % (reg_name, reg_name, abs(diff) % 4096)
+        instruction.instrumented = True
+
 
     def _get_resolved_address(self, function, inst, inst2, path):
         if inst2.cs.mnemonic == "add":
@@ -579,6 +606,8 @@ class Symbolizer():
         # there is an adrp somewhere in the code, this means global variable...
         # global variable addresses are dynamically built in multiple instructions
         # here we try to resolve the address with some capstone trickery and shady assumptions
+
+        Rewriter.total_globals += 1
 
         orig_off = inst.cs.operands[1].imm
         orig_reg = inst.reg_writes()[0]
@@ -636,7 +665,7 @@ class Symbolizer():
                 paths.append(path(new_reg, p.idx + 1, [], p.orig_off, copy.deepcopy(p.visited)))
 
             if p.orig_reg in inst2.reg_reads():
-                if '=' in inst2.op_str:  # XXX: ugly hack to avoid reinstrumenting instructions
+                if inst2.instrumented or '=' in inst2.op_str:  # XXX: ugly hack to avoid reinstrumenting instructions
                     del paths[0]
                     continue
                 raddr = self._get_resolved_address(p.function, inst, inst2, p)

@@ -3,7 +3,7 @@
 # This script needs to be run in the "retrowrite" source folder
 #
 
-set -e
+set -ue
 
 [[ -d ~/bins ]] || { echo "~/bins folder not found, exiting..." && exit 1 ; }
 

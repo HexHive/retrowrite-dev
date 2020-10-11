@@ -1,5 +1,6 @@
 CC=clang
 OPT=-O0 -ggdb -Wall -Wpedantic -Wextra -fPIC
+#OPT=-O0 -Wall -Wpedantic -Wextra -fPIC -pie
 
 .PHONY: redo
 %_rw: redo

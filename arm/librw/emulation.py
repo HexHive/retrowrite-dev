@@ -132,7 +132,9 @@ class Path:
         if instr.cs.mnemonic in ["bl", "blr"]:
             return
 
-        if instr.cs.mnemonic in ["add", "adds"] or instr.mnemonic in ["sub", "subs"]:
+        if instr.cs.mnemonic in ["add", "adds"] or instr.cs.mnemonic in ["sub", "subs"]:
+            print(instr.cs)
+            print(instr.mnemonic)
             operation = "+" if instr.mnemonic == "add" else "-"
             result = reg_name(ops[0].reg)
             first = reg_name(ops[1].reg)

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-char* func() {
+char* function() {
     char *a = malloc(256);
     scanf("%s", a);
     for (int i = 0; i < 257; i++) 
@@ -10,5 +10,5 @@ char* func() {
 }
 
 int main(int argc, char* argv[]) {
-    printf("what the fuck %s", func());
+    printf("what the fuck %s", function());
 }

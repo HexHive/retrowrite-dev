@@ -19,6 +19,7 @@ WORKDIR=${COMMIT_SHA}_${COMMIT_MSG}
 export BENCHDIR=$(find ~ -name "cpu2017_runner" -type d -maxdepth 3 | head -n 1)  # needed by run_test.py # this is peak research code
 
 
+[[ $(echo $COMMIT_MSG | grep -ic "Experiment") -eq 0 ]] && exit 0  # if "Experiment" is not in the commit message, quit
 [[ ${#BENCHDIR} -eq 0 ]] && echo "cpu2017_runner folder not found. Please store it in your home folder!" && exit 1
 sudo apt install libjpeg-dev zlib1g-dev poppler-utils -y 
 PIP_IGNORE_INSTALLED=0 pip3 install cython matplotlib pandas capstone pyelftools archinfo intervaltree 
@@ -34,6 +35,7 @@ cd ..
 cp -r retrowrite_ci/* ./
 bash rewrite_all.sh asan      # produce rewritten files in folder bins_rw
 BINARIES=$(find bins_rw -executable -type f)
+export ASAN_OPTIONS=detect_leaks=0  # do not print ASAN leak report
 python3 run_test.py $BINARIES | tee runcpu_cmd # place those binaries in the spec cpu2017 folder
 tail -n 1 runcpu_cmd | source /dev/stdin
 

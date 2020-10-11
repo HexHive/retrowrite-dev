@@ -169,6 +169,7 @@ class Function():
         return None
 
     def __str__(self):
+        debug(self.name)
         assert self.cache, "Function not disassembled!"
 
         results = []
