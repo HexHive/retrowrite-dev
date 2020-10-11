@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # This script needs to be run in the "retrowrite" source folder
+#
 
 set -ue
 
