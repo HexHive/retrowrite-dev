@@ -12,6 +12,7 @@ for binary_full in ~/bins/*; do
 	binary=$(basename $binary_full)
 	[[ $binary =~ "ldecod" ]] && continue
 	[[ $binary =~ "gcc" ]] && continue
+	[[ $binary =~ "x264" ]] && continue
 	#[[ $binary =~ "mcf" ]] || continue
 
 
