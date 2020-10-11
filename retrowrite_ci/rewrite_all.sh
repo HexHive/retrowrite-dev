@@ -12,7 +12,7 @@ mkdir -p bins_rw
 for binary_full in ~/bins/*; do
 	binary=$(basename $binary_full)
 	[[ $binary =~ "ldecod" ]] && continue
-	[[ $binary =~ "mcf" ]] || continue
+	#[[ $binary =~ "mcf" ]] || continue
 
 
 	if [[ $1 == "asan" ]]; then
