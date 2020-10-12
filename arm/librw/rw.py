@@ -760,7 +760,6 @@ class Symbolizer():
 
             dereference_resolved = True
             if inst2.mnemonic == "add":
-                inst2.mnemonic = "ldr"
                 dereference_resolved = False
 
             is_an_import = False
@@ -776,24 +775,35 @@ class Symbolizer():
             reg_name3 = inst2.cs.reg_name(inst2.cs.operands[1].reg)
 
             if inst2.mnemonic.startswith("str"):
+                Rewriter.literal_saves += 1
                 old_mnemonic = inst2.mnemonic
-                if reg_name2 == orig_reg:  # str <orig_reg>, [...]
-                    inst2.instrument_before(InstrumentedInstruction(
-                        f"ldr {reg_name2}, =.LC%x" % (resolved_address)))
-                else:                      # str ..., [<orig_reg> + ...]
-                    inst2.mnemonic =  "ldr"
-                    inst2.op_str =  reg_name3 + f", =.LC%x" % (resolved_address)
-                    inst2.instrument_after(InstrumentedInstruction(
-                        f"{old_mnemonic} {reg_name2}, [{reg_name3}]"))
+                # if reg_name2 == orig_reg:  # str <orig_reg>, [...]
+                inst2.instrument_before(InstrumentedInstruction(
+                    "adrp %s, .LC%x" % (reg_name2, resolved_address)))
+                inst2.instrument_before(InstrumentedInstruction(
+                    "add %s, %s, :lo12:.LC%x" % (reg_name2, reg_name2, resolved_address)))
+                # else:                      # str ..., [<orig_reg> + ...]
+                    # inst2.instrument_before(InstrumentedInstruction(
+                        # "adrp %s, .LC%x" % (reg_name2, resolved_address)))
+                    # inst2.instrument_before(InstrumentedInstruction(
+                        # "add %s, %s, :lo12:.LC%x" % (reg_name2, reg_name2, resolved_address)))
+                    # inst2.mnemonic =  "ldr"
+                    # inst2.op_str =  reg_name3 + f", =.LC%x" % (resolved_address)
+                    # inst2.instrument_after(InstrumentedInstruction(
+                        # f"{old_mnemonic} {reg_name2}, [{reg_name3}]"))
             elif is_an_import:
+                Rewriter.literal_saves += 1
                 inst2.op_str =  reg_name2 + f", =%s" % (is_an_import)
             else:
-                if is_reg_32bits(reg_name2): # because of a gcc bug? we cannot have ldr w0, =.label, only x0
+                Rewriter.literal_saves += 1
+                if is_reg_32bits(reg_name2):
                     reg_name2 = get_64bits_reg(reg_name2)
-                inst2.op_str =  reg_name2 + f", =.LC%x" % (resolved_address)
-                if dereference_resolved:
-                    inst2.instrument_after(InstrumentedInstruction(
-                        f"ldr {reg_name2}, [{reg_name2}]"))
+                if inst2.mnemonic == "add":
+                    inst2.mnemonic = "// " + inst2.mnemonic
+                inst2.instrument_before(InstrumentedInstruction(
+                    "adrp %s, .LC%x" % (reg_name2, resolved_address)))
+                inst2.instrument_before(InstrumentedInstruction(
+                    "add %s, %s, :lo12:.LC%x" % (reg_name2, reg_name2, resolved_address)))
 
             inst2.op_str += " // from adrp at 0x%x" % (inst.address)
 
