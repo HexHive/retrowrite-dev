@@ -800,6 +800,7 @@ class Symbolizer():
                     reg_name2 = get_64bits_reg(reg_name2)
                 if inst2.mnemonic == "add":
                     inst2.mnemonic = "// " + inst2.mnemonic
+
                 inst2.instrument_before(InstrumentedInstruction(
                     "adrp %s, .LC%x" % (reg_name2, resolved_address)))
                 inst2.instrument_before(InstrumentedInstruction(
