@@ -659,7 +659,7 @@ class Symbolizer():
             # XXX: add support for ldp
             if inst2.mnemonic == "ldr" and inst2.cs.reg_name(inst2.cs.operands[1].reg) == "x29" and\
                     inst2.cs.operands[1].mem.disp in p.stack_stores:
-                        paths.append(path(new_reg, p.idx + 1, [], p.orig_off, copy.deepcopy(p.visited)))
+                paths.append(path(new_reg, p.idx + 1, [], p.orig_off, copy.deepcopy(p.visited)))
                 debug(f"Found stack load at {inst2}, from {inst}!")
                 new_reg = inst2.cs.reg_name(inst2.cs.operands[0].reg)
 
