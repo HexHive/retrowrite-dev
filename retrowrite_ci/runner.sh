@@ -24,7 +24,8 @@ export BENCHDIR=$(find ~ -name "cpu2017_runner" -type d -maxdepth 3 | head -n 1)
 
 # prerequisites
 sudo apt install libjpeg-dev zlib1g-dev poppler-utils -y 
-PIP_IGNORE_INSTALLED=0 pip3 install cython matplotlib pandas capstone pyelftools archinfo intervaltree 
+PIP_IGNORE_INSTALLED=0 pip3 install cython
+PIP_IGNORE_INSTALLED=0 pip3 install matplotlib pandas capstone pyelftools archinfo intervaltree 
 
 # redirect stdout to log file to avoid cluttering CI console
 mkdir -p $WORKDIR
