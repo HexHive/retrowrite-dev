@@ -33,7 +33,7 @@ exec 1>$WORKDIR/log
 
 # fail-safe in case of error
 mkdir -p ~/error
-trap "tar xvf ~/error/$WORKDIR.tar * ; exit 1" ERR
+trap "tar cvf ~/error/$WORKDIR.tar * ; exit 1" ERR
 
 
 # erase all previous benchmark logs (do not fail)

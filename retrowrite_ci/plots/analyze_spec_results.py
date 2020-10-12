@@ -85,6 +85,13 @@ def plot(outf):
 def plot_diff(outf):
     csvf = outf + ".csv"
     df = pandas.read_csv(csvf)
+    numrows = len(df.index)
+    df.loc[numrows, "benchmark"] = "Average"
+    print(df.shape)
+    for x in range(1, len(df.columns.values)):
+        df.iloc[numrows, x] = sum([df.iloc[i, x] for i in range(numrows)])
+
+    print(df)
     for i in range(len(df.iloc[:])):
         for x in range(2, len(df.columns.values)):
             df.iloc[i, x] /= df.iloc[i]["Baseline"]
