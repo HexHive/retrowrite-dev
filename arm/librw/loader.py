@@ -15,12 +15,14 @@ from arm.librw.util.logging import *
 
 class Loader():
     def __init__(self, fname):
+        debug(f"Loading {fname}...")
         self.fd = open(fname, 'rb')
         self.elffile = ELFFile(self.fd)
         self.container = Container()
         print(self.elffile['e_type'])
 
     def load_functions(self, fnlist):
+        debug(f"Loading functions...")
         section = self.elffile.get_section_by_name(".text")
         data = section.data()
         base = section['sh_addr']
@@ -35,6 +37,7 @@ class Loader():
         # exit(1)
 
     def load_data_sections(self, seclist, section_filter=lambda x: True):
+        debug(f"Loading sections...")
         for sec in [sec for sec in seclist if section_filter(sec)]:
             sval = seclist[sec]
             section = self.elffile.get_section_by_name(sec)

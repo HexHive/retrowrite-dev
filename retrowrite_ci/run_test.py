@@ -86,5 +86,5 @@ for binary_full in sys.argv[1:]:
 print("="*50)
 print("Finished. You can now run:")
 print(f"cd {PATH_SPECPU} && source shrc && runcpu --nobuild --iterations 3 --config final.cfg {final_str}")
-# print(f"cd {PATH_SPECPU} && source shrc && runcpu --nobuild --iterations 1 --size test --loose --fake --config final.cfg {final_str}")
+# --size test --loose --fake 
 
