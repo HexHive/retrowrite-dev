@@ -173,6 +173,9 @@ class Instrument():
 
         save_condition_reg = True
         if save_condition_reg: # should check whether we actually need this or not
+            # XXX: important
+            # XXX: check if you have a free register
+            # XXX: instead of blindly placing on the stack.
             save.append("\tmrs {0}, nzcv\n\tstr {0}, [sp, -16]!".format(asan_regs[0]))
             restore.insert(0, "\tldr {0}, [sp], 16\n\tmsr nzcv, {0}".format(asan_regs[0]))
 

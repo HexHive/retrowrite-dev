@@ -40,8 +40,8 @@ MEM_LOAD_1 = """
 	mov	    {clob1}, {lexp}
 	lsr	    {clob2}, {clob1}, 3
 	mov	    {tgt}, 68719476736
-	add	    {tgt}, {clob2}, {tgt}
-	ldrsb   {tgt_32}, [{tgt}]
+        add	    {tgt}, {clob2}, {tgt}
+	ldrsb   {tgt_32}, [{tgt}, {clob2}]
 	cmp	    {tgt_32}, 0
 	cset    {clob2_32}, ne
 	and	    {clob2_32}, {clob2_32}, 255
@@ -52,8 +52,9 @@ MEM_LOAD_1 = """
 	and	    {tgt_32}, {tgt_32}, 255
 	and	    {tgt_32}, {clob2_32}, {tgt_32}
 	and	    {tgt_32}, {tgt_32}, 255
-	cmp	    {tgt_32}, 0
-	beq	    .LC_ASAN_EX_{addr}
+	//cmp	    {tgt_32}, 0
+	//beq	    .LC_ASAN_EX_{addr}
+        cbz         {tgt_32}, .LC_ASAN_EX_{addr}
 """
 
 
@@ -75,8 +76,9 @@ MEM_LOAD_2 = """
 	and	    {tgt_32}, {tgt_32}, 255
 	and	    {tgt_32}, {clob2_32}, {tgt_32}
 	and	    {tgt_32}, {tgt_32}, 255
-	cmp	    {tgt_32}, 0
-	beq	    .LC_ASAN_EX_{addr}
+	//cmp	    {tgt_32}, 0
+	//beq	    .LC_ASAN_EX_{addr}
+        cbz         {tgt_32}, .LC_ASAN_EX_{addr}
 """
 
 MEM_LOAD_4 = """
@@ -97,8 +99,9 @@ MEM_LOAD_4 = """
 	and	    {tgt_32}, {tgt_32}, 255
 	and	    {tgt_32}, {clob2_32}, {tgt_32}
 	and	    {tgt_32}, {tgt_32}, 255
-	cmp	    {tgt_32}, 0
-	beq	    .LC_ASAN_EX_{addr}
+	//cmp	    {tgt_32}, 0
+	//beq	    .LC_ASAN_EX_{addr}
+        cbz         {tgt_32}, .LC_ASAN_EX_{addr}
 """
 
 MEM_LOAD_8 = """
@@ -107,18 +110,20 @@ MEM_LOAD_8 = """
 	mov     {tgt}, 68719476736
 	add     {tgt}, {clob2}, {tgt}
 	ldrsb   {tgt_32}, [{tgt}]
-	cmp	    {tgt_32}, 0
-	beq	    .LC_ASAN_EX_{addr}
+	//cmp	    {tgt_32}, 0
+	//beq	    .LC_ASAN_EX_{addr}
+        cbz         {tgt_32}, .LC_ASAN_EX_{addr}
 """
 
 MEM_LOAD_16 = """
 	mov	    {clob1}, {lexp}
 	lsr	    {clob2}, {clob1}, 3
 	mov	    {tgt}, 68719476736
-	add	    {tgt}, {clob2}, {tgt}
-	ldrsh   {tgt_32}, [{tgt}]
-	cmp	    {tgt_32}, 0
-	beq	    .LC_ASAN_EX_{addr}
+	// add	    {tgt}, {clob2}, {tgt}
+	ldrsh   {tgt_32}, [{tgt}, {clob2}]
+	//cmp	    {tgt_32}, 0
+	//beq	    .LC_ASAN_EX_{addr}
+        cbz         {tgt_32}, .LC_ASAN_EX_{addr}
 """
 
 
