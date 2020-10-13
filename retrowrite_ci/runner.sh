@@ -43,7 +43,7 @@ rm  $BENCHDIR/result/* || true
 
 # run retrowrite on binaries
 cp -r retrowrite_ci/* ./
-bash rewrite_all.sh noasan      # put rewritten files in folder bins_rw
+bash rewrite_all.sh asan      # put rewritten files in folder bins_rw
 
 # prepare spec cpu benchmark
 BINARIES=$(find bins_rw -executable -type f)

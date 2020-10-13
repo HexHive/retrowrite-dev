@@ -18,7 +18,6 @@ for binary_full in ~/bins/*; do
 
 	if [[ $1 == "asan" ]]; then
 		echo "rewriting ${binary}.s ..."
-		python3 -m arm.rwtools.asan.asantool $binary_full bins_rw/prova_${binary}.s
 		./retrowrite --asan $binary_full bins_rw/prova_${binary}.s
 
 		echo "assembling ${binary}.s ..."
@@ -30,6 +29,5 @@ for binary_full in ~/bins/*; do
 
 		echo "assembling ${binary}.s ..."
 		gcc bins_rw/prova_${binary}.s -lm -o bins_rw/${binary}_rw && echo Done
-
 	fi
 done;
