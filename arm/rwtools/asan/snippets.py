@@ -101,37 +101,49 @@ MEM_LOAD_4 = """
 	beq	    .LC_ASAN_EX_{addr}
 """
 
+# MEM_LOAD_8 = """
+	# mov     {clob1}, {lexp}
+	# lsr     {clob2}, {clob1}, 3
+	# mov     {tgt}, 68719476736
+	# //add     {tgt}, {clob2}, {tgt}
+	# ldrsb   {tgt_32}, [{tgt}, {clob2}]
+	# //cmp	    {tgt_32}, 0
+	# //beq	    .LC_ASAN_EX_{addr}
+        # cbz         {tgt_32}, .LC_ASAN_EX_{addr}
+# """
+
 MEM_LOAD_8 = """
-	mov     {clob1}, {lexp}
-	lsr     {clob2}, {clob1}, 3
-	mov     {tgt}, 68719476736
-	//add     {tgt}, {clob2}, {tgt}
-	ldrsb   {tgt_32}, [{tgt}, {clob2}]
-	//cmp	    {tgt_32}, 0
-	//beq	    .LC_ASAN_EX_{addr}
+        mov     {clob1}, {lexp}
+        lsr     {clob2}, {clob1}, 3
+        mov     {tgt}, 68719476736
+        add     {tgt}, {clob2}, {tgt}
+        // ldrsb   {tgt_32}, [{tgt}, {clob2}]
+        ldrsb   {tgt_32}, [{tgt}]
+        //cmp	    {tgt_32}, 0
+        //beq	    .LC_ASAN_EX_{addr}
         cbz         {tgt_32}, .LC_ASAN_EX_{addr}
 """
-
-# MEM_LOAD_16 = """
-	# mov	    {clob1}, {lexp}
-	# lsr	    {clob2}, {clob1}, 3
-	# mov	    {tgt}, 68719476736
-	# add	    {tgt}, {clob2}, {tgt}
-	# ldrsh   {tgt_32}, [{tgt}]
-	# cmp	    {tgt_32}, 0
-	# beq	    .LC_ASAN_EX_{addr}
-# """
 
 MEM_LOAD_16 = """
         mov	    {clob1}, {lexp}
         lsr	    {clob2}, {clob1}, 3
         mov	    {tgt}, 68719476736
-        // add	    {tgt}, {clob2}, {tgt}
-        ldrsh   {tgt_32}, [{tgt}, {clob2}]
-        //cmp	    {tgt_32}, 0
-        //beq	    .LC_ASAN_EX_{addr}
-        cbz         {tgt_32}, .LC_ASAN_EX_{addr}
+        add	    {tgt}, {clob2}, {tgt}
+        ldrsh   {tgt_32}, [{tgt}]
+        cmp	    {tgt_32}, 0
+        beq	    .LC_ASAN_EX_{addr}
 """
+
+# MEM_LOAD_16 = """
+        # mov	    {clob1}, {lexp}
+        # lsr	    {clob2}, {clob1}, 3
+        # mov	    {tgt}, 68719476736
+        # // add	    {tgt}, {clob2}, {tgt}
+        # ldrsh   {tgt_32}, [{tgt}, {clob2}]
+        # //cmp	    {tgt_32}, 0
+        # //beq	    .LC_ASAN_EX_{addr}
+        # cbz         {tgt_32}, .LC_ASAN_EX_{addr}
+# """
 
 
 

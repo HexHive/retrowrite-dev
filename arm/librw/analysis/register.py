@@ -109,6 +109,7 @@ class RegisterAnalysis(object):
 
     @staticmethod
     def analyze(container):
+        info("Starting free registers analysis...")
         for addr, function in container.functions.items():
             ra = RegisterAnalysis()
             debug("Analyzing function " + function.name)
@@ -126,14 +127,28 @@ class RegisterAnalysis(object):
 
         # breadth first search on the cfg
         visited = [False]*function.sz
-        while len(queue):
-            idx = queue.pop(0)
-            visited[idx] = True
-            self.analyze_instruction(function, idx)
-            prev_instrs = list(filter(lambda x: isinstance(x, int), function.prevs[idx]))
-            for idxs in prev_instrs:
-                if not visited[idxs]:
-                    queue += [idxs]
+        # while len(queue):
+            # idx = queue.pop(0)
+
+
+            # visited[idx] = True
+            # self.analyze_instruction(function, idx)
+
+            # # if function.name.startswith("heapsort"):
+            # # print(function.cache[idx])
+            # # if visited[idx]: continue
+            # nexts = list(filter(lambda x: isinstance(x, int), function.nexts[idx]))
+            # # for n in nexts:
+                # # print("first next:", function.cache[n], visited[n])
+            # if not all([visited[x] for x in nexts]):
+                # print(function.name, idx)
+                # queue += [idx]
+                # # continue
+
+            # prev_instrs = list(filter(lambda x: isinstance(x, int), function.prevs[idx]))
+            # for idxs in prev_instrs:
+                # if not visited[idxs]:
+                    # queue += [idxs]
 
         self.finalize()
 
@@ -155,12 +170,24 @@ class RegisterAnalysis(object):
         nexts = function.nexts[instruction_idx]
 
         reguses = self.reg_pool.intersection(
-            ["x"+x if x[0] == "w" else x for x in current_instruction.reg_reads()]
+                ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_reads()]
         )
         reguses = self.compute_reg_set_closure(reguses)
 
+        if current_instruction.address == 0x98ac:
+            print(reguses)
+            print(current_instruction.reg_reads())
+            for nexti in nexts:
+                instruction = function.cache[nexti]
+                print(instruction)
+                if nexti not in self.used_regs: continue
+                print(self.used_regs[nexti])
+                # reguses = reguses.union(
+                    # self.used_regs[nexti].difference(regwrites))
+            # exit(1)
 
-        regwrites = ["x"+x if x[0] == "w" else x for x in current_instruction.reg_writes()]
+
+        regwrites = ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_writes()]
         regwrites = self.compute_reg_set_closure(regwrites)
         regwrites = set(regwrites).difference(reguses)
 

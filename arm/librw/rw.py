@@ -362,7 +362,7 @@ class Symbolizer():
             print(f"taking path at {hex(function.cache[p.inst_idx].address)}, total paths {len(paths)}")
 
             for i in prevs:
-                print("MULTIPLE prevs: " , [hex(function.cache[i].address) for i in prevs])
+                debug(f"MULTIPLE prevs: {[hex(function.cache[i].address) for i in prevs]}")
 
             p.inst_idx = prevs[0]
             instr = function.cache[p.inst_idx]
