@@ -31,7 +31,7 @@ class Expr:
         # print("  "*d, "exit")
 
     def simplify(self):
-        print("OK", self.left, self.right)
+        debug("OK" + str(self.left) + "," + str(self.right))
         # if self.left is None or self.right is None: return
         if isinstance(self.left, Expr):
             self.left.simplify()
@@ -41,8 +41,8 @@ class Expr:
             self.right.simplify()
             if self.right.right == None and not self.right.mem:
                 self.right = self.right.left
-        print("OK", self.left, self.right)
-        print("OK", type(self.left), type(self.right))
+        debug(f"simplifying, {self.left}, {self.right}")
+        debug(f"simplifying, {type(self.left)}, {type(self.right)}")
         if isinstance(self.left, int) and isinstance(self.right, int):
             if self.operation == "+":
                 self.left = self.left + self.right
@@ -133,8 +133,6 @@ class Path:
             return
 
         if instr.cs.mnemonic in ["add", "adds"] or instr.cs.mnemonic in ["sub", "subs"]:
-            print(instr.cs)
-            print(instr.mnemonic)
             operation = "+" if instr.mnemonic == "add" else "-"
             result = reg_name(ops[0].reg)
             first = reg_name(ops[1].reg)

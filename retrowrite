@@ -40,11 +40,9 @@ def asan(rw, loader, args):
         try:
             load_analysis_cache(loader, args.outfile)
         except IOError:
-            print("[*] Analyzing free registers")
             RegisterAnalysis.analyze(loader.container)
             save_analysis_cache(loader, args.outfile)
     else:
-        print("[*] Analyzing free registers")
         RegisterAnalysis.analyze(loader.container)
 
 

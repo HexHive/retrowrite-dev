@@ -313,7 +313,7 @@ class Symbolizer():
 
             p.visited[p.inst_idx] = True
             if len(prevs) > 1:
-                print("MULTIPLE prevs: ", [hex(function.cache[i].address) for i in prevs])
+                debug(f"MULTIPLE prevs:  {[hex(function.cache[i].address) for i in prevs]}")
                 #XXX: add other paths here
             p.inst_idx = prevs[0]
             instr = function.cache[p.inst_idx]

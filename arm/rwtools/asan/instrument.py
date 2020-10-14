@@ -694,10 +694,10 @@ class Instrument():
 
         rflags_stats[0] = count - rflags_stats[0]
 
-        print("[*] Instrumented: {} locations".format(count))
-        print("Stats:", free_reg_sz)
-        print(json.dumps(free_reg_cnt))
-        print(
+        debug("[*] Instrumented: {} locations".format(count))
+        debug("Stats: " + str(free_reg_sz))
+        debug(json.dumps(free_reg_cnt))
+        debug(
             "rflags live: {}, rflags + 0 regs: {}, rflags + rax: {},".format(
                 rflags_stats[0], rflags_stats[1], rflags_stats[2]),
             "rflags + >= 1 reg: {}".format(rflags_stats[3]))
