@@ -219,7 +219,7 @@ class Function():
         for iinstr in instr_list:
             for line in iinstr.code.split('\n'):
                 subinstr = line.strip()
-                if len(subinstr) and subinstr[0] != '.' and subinstr[0] != '#':
+                if len(subinstr) and subinstr[0] not in ".#/":
                     instr_count += 1
         return instr_count
 
@@ -279,6 +279,57 @@ class Function():
                     instruction.op_str = instruction.op_str.replace(
                         ".LC%x" % target, ".condb_%x_true" % start)
         return jumps_fixed
+
+    def fix_jmptbl_size_old(self, container):
+        # jump tables may not fit if there is too much instrumentation. 
+        for jmptbl in self.switches:
+            # jump tables can have negative values
+            # so we start from the first possible landing point
+            # and we get what is the number of instructions between that
+            # and the base case. We do the same, backwards, from the 
+            # latest possible landing point
+
+            max_instrs = max(self.count_instructions(jmptbl.first_case, jmptbl.base_case),
+                             self.count_instructions(jmptbl.base_case, jmptbl.last_case))
+
+            if max_instrs > (0x7f << (8 * (jmptbl.case_size-1))):
+                self.switches_to_fix += [(jmptbl, max_instrs)]
+
+        for (jmptbl,instr_no) in self.switches_to_fix:
+            add_instr = self.cache[self.addr_to_idx[jmptbl.br_address]-1]
+            assert add_instr.mnemonic == "add"
+            shift = add_instr.cs.operands[2].shift.value
+            while instr_no > (0x7f << (8 * (jmptbl.case_size-1))): # 0x7f -> no negative numbers!
+                instr_no /= 2
+                shift += 1
+
+
+            for case in set(jmptbl.cases):
+                instr_case = self.cache[self.addr_to_idx[case]]
+                info(instr_case.cs)
+                instr_case.before.insert(0, InstrumentedInstruction(f"\n.align {shift}"))
+
+
+            size = jmptbl.case_size
+
+            extend_width = "b" if size == 1 else "h"
+            reg = add_instr.cs.reg_name(add_instr.cs.operands[-1].reg)
+            add_instr.instrument_before(
+                    InstrumentedInstruction(f"\tsxt{extend_width} {reg}, {reg}"))
+
+            if shift <= 4: # aarch64 limitation of the add instruction
+                add_instr.op_str = add_instr.op_str[:-1] + str(shift)
+            else:
+                add_instr.instrument_before(
+                        InstrumentedInstruction(f"\tlsl {reg}, {reg}, {shift-2}"))
+            add_instr.op_str = add_instr.op_str.replace("sxtb", "sxtw") # correct cast if wrong
+            add_instr.op_str = add_instr.op_str.replace("sxth", "sxtw") # correct cast if wrong
+
+            debug(f"Fixing up jump table at {hex(jmptbl.br_address)} with new shift {shift}")
+            # change the actual jump table in memory 
+            for i in range(len(jmptbl.cases)):
+                swlbl = "(.LC%x-.LC%x)/%d" % (jmptbl.cases[i], jmptbl.base_case, 2**shift)
+                memory_replace(container, jmptbl.jump_table_address + i*size, size, swlbl)
 
     def fix_jmptbl_size(self, container):
         # jump tables may not fit if there is too much instrumentation. 
