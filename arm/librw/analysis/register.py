@@ -113,7 +113,12 @@ class RegisterAnalysis(object):
         for addr, function in container.functions.items():
             ra = RegisterAnalysis()
             debug("Analyzing function " + function.name)
-            ra.analyze_function(function)
+            while True:
+                old_hash = hash(repr(sorted(ra.free_regs)))
+                ra.analyze_function(function)
+                new_hash = hash(repr(sorted(ra.free_regs)))
+                if old_hash == new_hash:
+                    break
             function.analysis[RegisterAnalysis.KEY] = ra.free_regs
 
     def analyze_function(self, function):
@@ -127,28 +132,28 @@ class RegisterAnalysis(object):
 
         # breadth first search on the cfg
         visited = [False]*function.sz
-        # while len(queue):
-            # idx = queue.pop(0)
+        while len(queue):
+            idx = queue.pop(0)
 
 
-            # visited[idx] = True
-            # self.analyze_instruction(function, idx)
+            visited[idx] = True
+            self.analyze_instruction(function, idx)
 
-            # # if function.name.startswith("heapsort"):
-            # # print(function.cache[idx])
-            # # if visited[idx]: continue
-            # nexts = list(filter(lambda x: isinstance(x, int), function.nexts[idx]))
-            # # for n in nexts:
-                # # print("first next:", function.cache[n], visited[n])
+            # if function.name.startswith("heapsort"):
+            # print(function.cache[idx])
+            # if visited[idx]: continue
+            nexts = list(filter(lambda x: isinstance(x, int), function.nexts[idx]))
+            # for n in nexts:
+                # print("first next:", function.cache[n], visited[n])
             # if not all([visited[x] for x in nexts]):
                 # print(function.name, idx)
                 # queue += [idx]
-                # # continue
+                # continue
 
-            # prev_instrs = list(filter(lambda x: isinstance(x, int), function.prevs[idx]))
-            # for idxs in prev_instrs:
-                # if not visited[idxs]:
-                    # queue += [idxs]
+            prev_instrs = list(filter(lambda x: isinstance(x, int), function.prevs[idx]))
+            for idxs in prev_instrs:
+                if not visited[idxs]:
+                    queue += [idxs]
 
         self.finalize()
 
@@ -170,13 +175,13 @@ class RegisterAnalysis(object):
         nexts = function.nexts[instruction_idx]
 
         reguses = self.reg_pool.intersection(
-                ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_reads()]
+                ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_reads_common()]
         )
         reguses = self.compute_reg_set_closure(reguses)
 
         if current_instruction.address == 0x98ac:
             print(reguses)
-            print(current_instruction.reg_reads())
+            print(current_instruction.reg_reads_common())
             for nexti in nexts:
                 instruction = function.cache[nexti]
                 print(instruction)
@@ -187,7 +192,7 @@ class RegisterAnalysis(object):
             # exit(1)
 
 
-        regwrites = ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_writes()]
+        regwrites = ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_writes_common()]
         regwrites = self.compute_reg_set_closure(regwrites)
         regwrites = set(regwrites).difference(reguses)
 
@@ -226,10 +231,10 @@ class RegisterAnalysis(object):
         # nexts = function.next_of(instruction_idx)
 
         # reguses = self.reg_pool.intersection(
-            # [self.full_register_of(x) for x in current_instruction.reg_reads()]
+            # [self.full_register_of(x) for x in current_instruction.reg_reads_common()]
         # )
 
-        # regwrites = self.reg_pool.intersection(current_instruction.reg_writes()).difference(reguses)
+        # regwrites = self.reg_pool.intersection(current_instruction.reg_writes_common()).difference(reguses)
 
         # if current_instruction.mnemonic.startswith("cmp") \
         # or current_instruction.mnemonic.startswith("tst"):

@@ -579,6 +579,11 @@ class InstructionWrapper():
         regs = self.cs.regs_access()[0]
         return [self.cs.reg_name(x) for x in regs]
 
+    def reg_reads_common(self):
+        if self.mnemonic.startswith("br"):
+            return non_clobbered_registers # jumptable, we don't know, assume every reg is used
+        return self.reg_reads()
+
     def reg_writes(self):
         # Handle nop
         if self.mnemonic.startswith("nop"):
