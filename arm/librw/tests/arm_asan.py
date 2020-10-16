@@ -28,10 +28,14 @@ def gcc(code):
 
 def retrowrite_and_exec(code):
     gcc(code)
+    print(".", end=""); sys.stdout.flush()
+
     cmd("python3 -m arm.rwtools.asan.asantool ./test.out ./test_rw.s")
+    print(".", end=""); sys.stdout.flush()
+
     cmd("gcc -g -fsanitize=address test_rw.s -o test_rw.out")
+    print(".", end=""); sys.stdout.flush()
     return cmd("./test_rw.out")
-    
 
 
 def run_test(test_func):

@@ -36,75 +36,91 @@ MODULE_DEINIT = [
 # the following snippets were copy-pasted from gcc -fsanitize=address, _without_ optimization,
 # so there is probably a faster/shorter alternative!
 
+# MEM_LOAD_1 = """
+	# lsr		{clob2}, {lexp}, 3
+	# mov		{tgt}, 68719476736
+	# ldrsb		{tgt_32}, [{tgt}, {clob2}]
+	# cmp		{tgt_32}, 0
+	# cset		{clob2_32}, ne
+	# and		{clob2_32}, {clob2_32}, 255
+	# and		{clob3}, {clob1}, 7
+	# sxtb		{clob3_32}, {clob3_32}
+	# cmp		{clob3_32}, {tgt_32}
+	# cset		{tgt_32}, ge
+	# and		{tgt_32}, {tgt_32}, 255
+	# and		{tgt_32}, {clob2_32}, {tgt_32}
+	# and		{tgt_32}, {tgt_32}, 255
+	# cbz		{tgt_32}, .LC_ASAN_EX_{addr}
+# """
+
 MEM_LOAD_1 = """
-	lsr	    {clob2}, {lexp}, 3
-	mov	    {tgt}, 68719476736
-	ldrsb       {tgt_32}, [{tgt}, {clob2}]
-	cmp	    {tgt_32}, 0
-	cset    {clob2_32}, ne
-	and	    {clob2_32}, {clob2_32}, 255
-	and	    {clob3}, {clob1}, 7
-	sxtb    {clob3_32}, {clob3_32}
-	cmp	    {clob3_32}, {tgt_32}
-	cset    {tgt_32}, ge
-	and	    {tgt_32}, {tgt_32}, 255
-	and	    {tgt_32}, {clob2_32}, {tgt_32}
-	and	    {tgt_32}, {tgt_32}, 255
-        cbz		{tgt_32}, .LC_ASAN_EX_{addr}
+        lsr		{clob1}, {lexp}, 3
+        mov		{clob2}, 68719476736
+        ldrsb		{clob2}, [{clob2}, {clob1}]
+        cmp		{clob2}, 0
+        cset		{clob1_32}, ne
+        and		{clob1_32}, {clob1_32}, 255
+        and		{clob3}, {clob1}, 7
+        sxtb		{clob3_32}, {clob3_32}
+        cmp		{clob3_32}, {clob2_32}
+        cset		{clob2}, ge
+        and		{clob2}, {clob2}, 255
+        and		{clob2_32}, {clob1_32}, {clob2_32}
+        and		{clob2}, {clob2}, 255
+        cbz		{clob2}, .LC_ASAN_EX_{addr}
 """
 
-
 MEM_LOAD_2 = """
-	lsr	    {clob2}, {lexp}, 3
-	mov	    {tgt}, 68719476736
-	ldrsb   {tgt_32}, [{tgt}, {clob2}]
-	cmp	    {tgt_32}, 0
-	cset    {clob2_32}, ne
-	and	    {clob2_32}, {clob2_32}, 255
-	and	    {clob3}, {clob1}, 7
-	sxtb    {clob3_32}, {clob3_32}
-	add     {clob3_32}, {clob3_32}, 1
-	sxtb    {clob3_32}, {clob3_32}
-	cmp	    {clob3_32}, {tgt_32}
-	cset    {tgt_32}, ge
-	and	    {tgt_32}, {tgt_32}, 255
-	and	    {tgt_32}, {clob2_32}, {tgt_32}
-	and	    {tgt_32}, {tgt_32}, 255
-        cbz		{tgt_32}, .LC_ASAN_EX_{addr}
+	lsr		{clob1}, {lexp}, 3
+	mov		{clob2}, 68719476736
+	ldrsb		{clob2_32}, [{clob1}, {clob2}]
+	cmp		{clob2_32}, 0
+	cset		{clob1_32}, ne
+	and		{clob1_32}, {clob1_32}, 255
+	and		{clob3}, {clob2}, 7
+	sxtb		{clob3_32}, {clob3_32}
+	add		{clob3_32}, {clob3_32}, 1
+	sxtb		{clob3_32}, {clob3_32}
+	cmp		{clob3_32}, {clob2_32}
+	cset		{clob2_32}, ge
+	and		{clob2_32}, {clob2_32}, 255
+	and		{clob2_32}, {clob1_32}, {clob2_32}
+	and		{clob2_32}, {clob2_32}, 255
+        cbz		{clob2_32}, .LC_ASAN_EX_{addr}
 """
 
 MEM_LOAD_4 = """
-	lsr	    {clob2}, {lexp}, 3
-	mov	    {tgt}, 68719476736
-	ldrsb   {tgt_32}, [{tgt}, {clob2}]
-	cmp	    {tgt_32}, 0
-	cset    {clob2_32}, ne
-	and	    {clob2_32}, {clob2_32}, 255
-	and	    {clob3}, {clob1}, 7
-	sxtb    {clob3_32}, {clob3_32}
-	add     {clob3_32}, {clob3_32}, 3
-	sxtb    {clob3_32}, {clob3_32}
-	cmp	    {clob3_32}, {tgt_32}
-	cset    {tgt_32}, ge
-	and	    {tgt_32}, {tgt_32}, 255
-	and	    {tgt_32}, {clob2_32}, {tgt_32}
-	and	    {tgt_32}, {tgt_32}, 255
-        cbz		{tgt_32}, .LC_ASAN_EX_{addr}
+	lsr		{clob1}, {lexp}, 3
+	mov		{clob2}, 68719476736
+	ldrsb		{clob2_32}, [{clob2}, {clob1}]
+	cmp		{clob2_32}, 0
+	cset		{clob1_32}, ne
+	and		{clob1_32}, {clob1_32}, 255
+	and		{clob3}, {clob1}, 7
+	sxtb		{clob3_32}, {clob3_32}
+	add		{clob3_32}, {clob3_32}, 3
+	sxtb		{clob3_32}, {clob3_32}
+	cmp		{clob3_32}, {clob2_32}
+	cset		{clob2_32}, ge
+	and		{clob2_32}, {clob2_32}, 255
+	and		{clob2_32}, {clob1_32}, {clob2_32}
+	and		{clob2_32}, {clob2_32}, 255
+	cbz		{clob2_32}, .LC_ASAN_EX_{addr}
 """
 
 
 MEM_LOAD_8 = """
-	lsr		{clob2}, {lexp}, 3
-	mov		{tgt}, 68719476736
-	ldrsb		{tgt_32}, [{tgt}, {clob2}]
-	cbz		{tgt_32}, .LC_ASAN_EX_{addr}
+	lsr		{clob1}, {lexp}, 3
+	mov		{clob2}, 68719476736
+	ldrsb		{clob2_32}, [{clob2}, {clob1}]
+	cbz		{clob2_32}, .LC_ASAN_EX_{addr}
 """
 
 MEM_LOAD_16 = """
-	lsr		{clob2}, {lexp}, 3
-	mov		{tgt}, 68719476736
-	ldrsh		{tgt_32}, [{tgt}, {clob2}]
-	cbz		{tgt_32}, .LC_ASAN_EX_{addr}
+	lsr		{clob1}, {lexp}, 3
+	mov		{clob2}, 68719476736
+	ldrsh		{clob2_32}, [{clob2}, {clob1}]
+	cbz		{clob2_32}, .LC_ASAN_EX_{addr}
 """
 
 
