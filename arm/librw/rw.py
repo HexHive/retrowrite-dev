@@ -120,7 +120,8 @@ class Rewriter():
         with open(self.outfile, 'w') as outfd:
             outfd.write("\n".join(results + ['']))
 
-        info(f"Saved {Rewriter.literal_saves} out of {Rewriter.total_globals} global accesses ({Rewriter.literal_saves / Rewriter.total_globals * 100}% )")
+        if Rewriter.total_globals > 0:
+            info(f"Saved {Rewriter.literal_saves} out of {Rewriter.total_globals} global accesses ({Rewriter.literal_saves / Rewriter.total_globals * 100}% )")
         info(f"Success: retrowritten assembly to {self.outfile}")
 
 
