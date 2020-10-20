@@ -164,8 +164,10 @@ LEXP_MOVZ = "\tmovz {To}, {amnt}"
 LEAF_STACK_ADJUST = "\tsub sp, sp, 256"
 LEAF_STACK_UNADJUST = "\tadd sp, sp, 256"
 
-STACK_REG_SAVE = "\tstr {0}, [sp, -8]!",  #pre-increment
-STACK_REG_LOAD = "\tldr {0}, [sp], 8",    #post-increment
+# Even if for a single register, we still need to keep the sp
+# aligned to 16 bytes
+STACK_REG_SAVE = "\tstr {0}, [sp, -16]!",  #pre-increment 
+STACK_REG_LOAD = "\tldr {0}, [sp], 16",    #post-increment
 
 STACK_PAIR_REG_SAVE = "\tstp {0}, {1}, [sp, -16]!",  #pre-increment
 STACK_PAIR_REG_LOAD = "\tldp {0}, {1}, [sp], 16",    #post-increment

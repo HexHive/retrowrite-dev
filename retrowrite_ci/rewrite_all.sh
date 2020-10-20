@@ -15,8 +15,11 @@ for binary_full in ~/bins/*; do
 	[[ $binary =~ "x264" ]] && continue
 	#[[ $binary =~ "mcf" ]] || continue
 
+	if [[ $1 == "nothing" ]]; then
+		echo "Not touching ${binary}..."
+		cp ${binary_full} bins_rw/
 
-	if [[ $1 == "asan" ]]; then
+	elif [[ $1 == "asan" ]]; then
 		echo "rewriting ${binary}.s ..."
 		./retrowrite --asan $binary_full bins_rw/prova_${binary}.s
 

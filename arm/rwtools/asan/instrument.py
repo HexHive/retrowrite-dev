@@ -353,12 +353,13 @@ class Instrument():
 
     def instrument_mem_accesses(self):
         for _, fn in self.rewriter.container.functions.items():
-            if any([s in fn.name for s in ["alloc", "signal_is_trapped", "free"]]):
-                info(f"Skipping instrumentation on function {fn.name} to avoid custom heap implementations")
-                continue
+            # if any([s in fn.name for s in ["alloc", "signal_is_trapped", "free"]]):
+                # info(f"Skipping instrumentation on function {fn.name} to avoid custom heap implementations")
+                # continue
 
             is_leaf = fn.analysis.get(StackFrameAnalysis.KEY_IS_LEAF, False)
             for idx, instruction in enumerate(fn.cache):
+                # if not (115 == idx): continue
                 # Do not instrument instrumented instructions
                 if isinstance(instruction, InstrumentedInstruction):
                     continue

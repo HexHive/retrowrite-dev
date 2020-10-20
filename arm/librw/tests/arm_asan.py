@@ -34,7 +34,8 @@ def retrowrite_and_exec(code):
     if err: print(out); exit(1)
     print(".", end=""); sys.stdout.flush()
 
-    cmd("gcc -g -fsanitize=address test_rw.s -o test_rw.out")
+    err, out = cmd("gcc -g -fsanitize=address test_rw.s -o test_rw.out")
+    if err: print(out); exit(1)
     print(".", end=""); sys.stdout.flush()
     return cmd("./test_rw.out")[1]
 

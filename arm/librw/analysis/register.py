@@ -3,6 +3,7 @@ Implements analysis to look for free registers
 """
 
 import copy
+import json
 from collections import defaultdict
 
 from archinfo import ArchAArch64, Register
@@ -46,7 +47,12 @@ class RegisterAnalysis(object):
         del regmap["x30"]
 
         # Clobbered registers (reserved by caller, cannot overwrite)
-        for i in range(19, 28):
+        # PyRCODIO:
+        # https://developer.arm.com/documentation/ihi0055/d
+        # The callee saved registers being only x19...x30 IS A LIE
+        # You actually cannot touch x18 too
+        # I'm not sure about x16 and x17, removing them to be safe
+        for i in range(16, 30):
             del regmap["x" + str(i)]
 
         # Add a fake register for rflags
@@ -107,55 +113,63 @@ class RegisterAnalysis(object):
     def full_register_of(self, regname):
         return self.subregs.get(regname, None)
 
+
+
     @staticmethod
     def analyze(container):
+        class DecimalEncoder(json.JSONEncoder):
+            def default(self, o):
+                if isinstance(o, set):
+                    return list(o)
+                else:
+                    return super(DecimalEncoder, self).default(o)
         info("Starting free registers analysis...")
         for addr, function in container.functions.items():
             ra = RegisterAnalysis()
             debug("Analyzing function " + function.name)
-            while True:
-                old_hash = hash(repr(sorted(ra.free_regs)))
+            if function.name == "nblist":
                 ra.analyze_function(function)
-                new_hash = hash(repr(sorted(ra.free_regs)))
-                if old_hash == new_hash:
-                    break
             function.analysis[RegisterAnalysis.KEY] = ra.free_regs
 
     def analyze_function(self, function):
         # we will do a reverse-topological order visit to understand
         # which registers are free in a single pass
-        queue = []
-        for idx, nexts in function.nexts.items():
-            no_of_nexts = sum(isinstance(x, int) for x in nexts) # how many actual nexts do we have?
-            if no_of_nexts == 0:
-                queue += [idx]
+        changed = True
 
-        # breadth first search on the cfg
-        visited = [False]*function.sz
-        while len(queue):
-            idx = queue.pop(0)
+        i = 0
+        while changed:
+            changed = False
+            i += 1
+            if i % 10 == 0: debug(i)
+            queue = []
+            for idx, nexts in function.nexts.items():
+                no_of_nexts = sum(isinstance(x, int) for x in nexts) 
+                if no_of_nexts == 0:
+                    queue += [idx]
+
+            # breadth first search on the cfg
+            visited = [False]*function.sz
+            while len(queue):
+                idx = queue.pop(0)
 
 
-            visited[idx] = True
-            self.analyze_instruction(function, idx)
+                visited[idx] = True
+                changed = self.analyze_instruction(function, idx) or changed
 
-            # if function.name.startswith("heapsort"):
-            # print(function.cache[idx])
-            # if visited[idx]: continue
-            nexts = list(filter(lambda x: isinstance(x, int), function.nexts[idx]))
-            # for n in nexts:
-                # print("first next:", function.cache[n], visited[n])
-            # if not all([visited[x] for x in nexts]):
-                # print(function.name, idx)
-                # queue += [idx]
-                # continue
+                nexts = list(filter(lambda x: isinstance(x, int), function.nexts[idx]))
+                # for n in nexts:
+                    # print("first next:", function.cache[n], visited[n])
+                # if not all([visited[x] for x in nexts]):
+                    # print(function.name, idx)
+                    # queue += [idx]
+                    # continue
 
-            prev_instrs = list(filter(lambda x: isinstance(x, int), function.prevs[idx]))
-            for idxs in prev_instrs:
-                if not visited[idxs]:
-                    queue += [idxs]
+                prev_instrs = list(filter(lambda x: isinstance(x, int), function.prevs[idx]))
+                for idxs in prev_instrs:
+                    if not visited[idxs]:
+                        queue += [idxs]
 
-        self.finalize()
+            self.finalize()
 
 
         # old algorithm, ignore
@@ -179,19 +193,6 @@ class RegisterAnalysis(object):
         )
         reguses = self.compute_reg_set_closure(reguses)
 
-        if current_instruction.address == 0x98ac:
-            print(reguses)
-            print(current_instruction.reg_reads_common())
-            for nexti in nexts:
-                instruction = function.cache[nexti]
-                print(instruction)
-                if nexti not in self.used_regs: continue
-                print(self.used_regs[nexti])
-                # reguses = reguses.union(
-                    # self.used_regs[nexti].difference(regwrites))
-            # exit(1)
-
-
         regwrites = ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_writes_common()]
         regwrites = self.compute_reg_set_closure(regwrites)
         regwrites = set(regwrites).difference(reguses)
@@ -205,9 +206,26 @@ class RegisterAnalysis(object):
             reguses = reguses.union(
                 self.used_regs[nexti].difference(regwrites))
 
+        # if all([nexti in self.used_regs for nexti in nexts]):
+            # for nexti in nexts:
+                # reguses = reguses.union(
+                    # self.used_regs[nexti].difference(regwrites))
+
+        # if current_instruction.address == 0x177e0c:
+            # print(reguses)
+            # print(current_instruction.reg_reads_common())
+            # import IPython; IPython.embed() 
+            # for nexti in nexts:
+                # instruction = function.cache[nexti]
+                # print(instruction)
+                # if nexti not in self.used_regs: continue
+                # print(self.used_regs[nexti])
+
         reguses = self.compute_reg_set_closure(reguses)
-        self.used_regs[instruction_idx] = reguses
-        return
+        if self.used_regs[instruction_idx] != reguses:
+            self.used_regs[instruction_idx] = reguses
+            return True
+        return False
 
         # if reguses != self.used_regs[instruction_idx]:
             # self.used_regs[instruction_idx] = reguses
@@ -265,5 +283,5 @@ class RegisterAnalysis(object):
             #XXX
             #XXX
             #XXX
-            self.free_regs[idx] = []
-            # self.free_regs[idx] = self.reg_pool.difference(ent)
+            # self.free_regs[idx] = []
+            self.free_regs[idx] = self.reg_pool.difference(ent)
