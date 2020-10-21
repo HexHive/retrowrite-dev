@@ -127,8 +127,7 @@ class RegisterAnalysis(object):
         for addr, function in container.functions.items():
             ra = RegisterAnalysis()
             debug("Analyzing function " + function.name)
-            if function.name == "nblist":
-                ra.analyze_function(function)
+            ra.analyze_function(function)
             function.analysis[RegisterAnalysis.KEY] = ra.free_regs
 
     def analyze_function(self, function):

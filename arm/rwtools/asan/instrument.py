@@ -662,7 +662,7 @@ class Instrument():
 
     def dump_stats(self):
         count = 0
-        free_reg_sz = list()
+        free_reg_sz = defaultdict(lambda: 0)
         free_reg_cnt = defaultdict(lambda: 0)
         rflags_stats = [0, 0, 0, 0]
 
@@ -677,9 +677,9 @@ class Instrument():
                     regs = []
 
                 if "rflags" in regs:
-                    free_reg_sz.append(len(regs) - 1)
+                    free_reg_sz[len(regs) - 1] += 1
                 else:
-                    free_reg_sz.append(len(regs))
+                    free_reg_sz[len(regs)] += 1
 
                 for reg in regs:
                     free_reg_cnt[reg] += 1
@@ -696,7 +696,11 @@ class Instrument():
         rflags_stats[0] = count - rflags_stats[0]
 
         debug("[*] Instrumented: {} locations".format(count))
-        debug("Stats: " + str(free_reg_sz))
+        regs_cnt = [f"{nregs} free regs: {cnt}" for nregs,cnt in free_reg_cnt.items()]
+        debug("Free register stats:\n" + "\n".join(sorted(regs_cnt)))
+
+        nregs_cnt = [f"{cnt} free regs: {free_reg_sz[cnt]}" for cnt in range(len(free_reg_cnt))]
+        debug("Free register count:\n" + "\n".join(nregs_cnt))
         debug(json.dumps(free_reg_cnt))
         debug(
             "rflags live: {}, rflags + 0 regs: {}, rflags + rax: {},".format(
