@@ -208,7 +208,9 @@ class Function():
     def add_switch(self, jump_table):
         self.switches += [jump_table]
         for case in set(jump_table.cases):
-            instr = self.cache[self.addr_to_idx[case]]
+            addr = self.addr_to_idx[case]
+            self.bbstarts.add(addr)
+            instr = self.cache[addr]
             same_cases = [e for e,x in enumerate(jump_table.cases) if x == instr.address]
             instr.op_str += f" // Case {same_cases} of switch at {hex(jump_table.br_address)}"
 
@@ -386,8 +388,6 @@ class Function():
                             # instr_length = self.get_instrumentation_length(self.cache[self.addr_to_idx[jmptbl.base_case]])
                             # instrs -= instr_length
                         instrs += total_nops
-                        if jmptbl.br_address == 0x584d04:
-                            critical(f"from {hex(jmptbl.base_case)} to {hex(instr_case.address)} there are {instrs} instrs")
                         alignment = (2 ** (shift - 2))
                         # nops = (alignment - (instrs % alignment)) % alignment
                         nops = (alignment - (instrs % alignment)) #XXX ? see line directly before

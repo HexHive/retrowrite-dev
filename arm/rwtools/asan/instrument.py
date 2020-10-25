@@ -13,7 +13,9 @@ from arm.librw.container import (DataCell, InstrumentedInstruction, DataSection,
                              Function)
 from arm.librw.analysis.stackframe import StackFrameAnalysis
 from arm.librw.util.logging import *
-from arm.librw.util.arm_util import get_reg_size_arm, get_access_size_arm, is_reg_32bits, get_64bits_reg
+from arm.librw.container import INSTR_SIZE
+from arm.librw.util.arm_util import get_reg_size_arm, get_access_size_arm, is_reg_32bits, get_64bits_reg, non_clobbered_registers
+
 ASAN_SHADOW_OFF = 68719476736 # 0x1000000000
 
 ASAN_GLOBAL_DS_BASE = 0x3000000000000000
@@ -81,26 +83,6 @@ class Instrument():
         finifn.cache.append(finicode)
         self.rewriter.container.add_function(finifn)
 
-    def _access1(self):
-        common = copy.copy(sp.MEM_LOAD_1)
-        return common + sp.ASAN_REPORT
-
-    def _access2(self):
-        common = copy.copy(sp.MEM_LOAD_2)
-        return common + sp.ASAN_REPORT
-
-    def _access4(self):
-        common = copy.copy(sp.MEM_LOAD_4)
-        return common + sp.ASAN_REPORT
-
-    def _access8(self):
-        common = copy.copy(sp.MEM_LOAD_8)
-        return common + sp.ASAN_REPORT
-
-    def _access16(self):
-        common = copy.copy(sp.MEM_LOAD_16)
-        return common + sp.ASAN_REPORT
-
     def get_mem_instrumentation(self, acsz, instruction, midx, free, is_leaf, bool_load):
         if "sp" in instruction.reg_reads() or "sp" in instruction.reg_writes():
             debug("we do not instrument push/pop for now")
@@ -114,27 +96,6 @@ class Instrument():
         if len(instruction.before) > 0 or len(instruction.after) > 0 or\
             (instruction.mnemonic == "ldr" and "=" in instruction.op_str):
             return InstrumentedInstruction("# Already instrumented - skipping bASAN")
-
-
-
-        # return InstrumentedInstruction("nop\n"*500)
-
-        # if instruction.address != 0xa360:
-            # return InstrumentedInstruction("# woah")
-        # if instruction.address < 0x99c0 or instruction.address > 0xa3b8:
-            # return InstrumentedInstruction("# woah")
-
-        # if 0x9900 <= instruction.address <= 0x9990:
-                # return InstrumentedInstruction("# woah")
-
-        # if is_leaf:
-            # critical(f"LEAF {instruction.cs}")
-            # exit(1)
-
-        # import random
-        # if random.randint(0, 800) != 1:
-            # return InstrumentedInstruction("# woah")
-
 
         # we prefer high registers, less likely to go wrong
         affinity = ["x" + str(i) for i in range(18, 0, -1)]
@@ -284,17 +245,19 @@ class Instrument():
             restore.insert(0, "leaq -{}(%rsp), %rsp".format(push_cnt * 8))
 
         if acsz == 1:
-            memcheck = self._access1()
+            memcheck = copy.copy(sp.MEM_LOAD_1)
         elif acsz == 2:
-            memcheck = self._access2()
+            memcheck = copy.copy(sp.MEM_LOAD_2)
         elif acsz == 4:
-            memcheck = self._access4()
+            memcheck = copy.copy(sp.MEM_LOAD_4)
         elif acsz == 8:
-            memcheck = self._access8()
+            memcheck = copy.copy(sp.MEM_LOAD_8)
         elif acsz == 16:
-            memcheck = self._access16()
+            memcheck = copy.copy(sp.MEM_LOAD_16)
         else:
             assert False, "Reached unreachable code!"
+
+        memcheck += sp.ASAN_REPORT
 
         codecache.extend(save)
         if len(fix_lexp): 
@@ -313,12 +276,12 @@ class Instrument():
 
         args["tgt"] = asan_regs[0]
         args["tgt_32"] = self._get_subreg32(asan_regs[0])
-        args["clob1"] = asan_regs[1]
-        args["clob1_32"] = self._get_subreg32(asan_regs[1])
-        args["clob2"] = asan_regs[2]
-        args["clob2_32"] = self._get_subreg32(asan_regs[2])
-        args["clob3"] = asan_regs[3]
-        args["clob3_32"] = self._get_subreg32(asan_regs[3])
+        args["r1"] = asan_regs[1]
+        args["r1_32"] = self._get_subreg32(asan_regs[1])
+        args["r2"] = asan_regs[2]
+        args["r2_32"] = self._get_subreg32(asan_regs[2])
+        args["r3"] = asan_regs[3]
+        args["r3_32"] = self._get_subreg32(asan_regs[3])
 
 
         args["addr"] = instruction.address
@@ -329,23 +292,6 @@ class Instrument():
         codecache = '\n'.join(codecache)
         comment = "{}: {}".format(str(instruction), str(free))
 
-        # if is_rep_stos:
-            # copycache = copy.copy(codecache)
-            # extend_args_check = copy.copy(args)
-            # extend_args_check["lexp"] = "(%rdi, %rcx)"
-            # extend_args_check["addr"] = '{}_2'.format(instruction.address)
-            # copycache = copycache.format(**extend_args_check)
-            # original_exit = copy.copy(
-                # sp.MEM_EXIT_LABEL)[0].format(addr=instruction.address)
-
-            # new_exit = copy.copy(sp.MEM_EXIT_LABEL)[0].format(
-                # addr='{}_2'.format(instruction.address))
-            # copycache = copycache.replace(original_exit, new_exit)
-            # codecache = codecache + "\n" + copycache
-
-        # debug("Memcheck after:\n" + codecache.format(**args))
-
-        # exit(1)
 
         return InstrumentedInstruction(codecache.format(**args),
                                        enter_lbl, comment)
@@ -357,29 +303,39 @@ class Instrument():
                 # info(f"Skipping instrumentation on function {fn.name} to avoid custom heap implementations")
                 # continue
 
+            if not len(fn.cache): continue
+            for e, addr in enumerate(sorted(fn.bbstarts)):
+                bb_start = addr
+                bb_end = fn.bbstarts[e+1] - INSTR_SIZE if e+1 < len(fn.bbstarts) else fn.cache[-1].address
+
+                regs = set(non_clobbered_registers)
+
+                for addr in range(bb_start, bb_end + INSTR_SIZE, INSTR_SIZE):
+                    idx = fn.addr_to_idx[addr]
+                    free_registers = fn.analysis['free_registers'][idx]
+                    regs = regs.intersection(free_registers)
+
+                debug(f"{hex(bb_start)}, {hex(bb_end)}")
+                debug(f"{regs}")
+            exit(1)
+
+
+                # compute set of free registers in the bb
+
+
+
             is_leaf = fn.analysis.get(StackFrameAnalysis.KEY_IS_LEAF, False)
             for idx, instruction in enumerate(fn.cache):
-                # if fn.name == "S_regclass":
-                    # # 4131
                 # if not (2460 <= idx < 2461): continue
-                # else:
-                    # continue
 
-
-                # if not (115 == idx): continue
                 # Do not instrument instrumented instructions
                 if isinstance(instruction, InstrumentedInstruction):
                     continue
                 if instruction.address in self.skip_instrument:
                     continue
 
-                # Do not instrument stack canaries
-                # XXX: if instruction.op_str.startswith(sp.CANARY_CHECK):
-                    # XXX: continue
-
                 mem, midx = instruction.get_mem_access_op()
-                # This is not a memory access
-                if not mem:
+                if not mem: # This is not a memory access
                     continue
 
                 # XXX: not supporting SIMD instructions for now (ld1, st3 ...)
@@ -399,24 +355,15 @@ class Instrument():
                 else:
                     debug("[x] Missing free reglist in cache for function "+fn.name)
                     free_registers = list()
-                    # XXX
-                    # XXX
-                    # XXX
-                    # XXX
-                    # XXX
-                    # XXX
-                    debug("Skipping "+fn.name)
-                    continue
 
                 debug(f"{instruction} --- acsz: {acsz}, load: {bool_load}")
                 iinstr = self.get_mem_instrumentation(
                     acsz, instruction, midx, free_registers, is_leaf, bool_load)
-
-                # debug(f"now is {iinstr}")
+                instruction.instrument_before(iinstr)
 
                 # Save some stats
                 self.memcheck_sites[fn.start].append(idx)
-                instruction.instrument_before(iinstr)
+
 
     def instrument_globals(self):
         gmap = list()

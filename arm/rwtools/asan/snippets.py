@@ -11,134 +11,53 @@ ASAN_LIB_INIT = "__asan_init"
 ASAN_MEM_EXIT = ".LC_ASAN_EX"
 ASAN_MEM_ENTER = ".LC_ASAN_ENTER"
 
-MODULE_INIT = [
-    "    .align    16, 0x90",
-    "# BB#0:",
-    "    pushq    %rax",
-    ".Ltmp11:",
-    "    callq    {}@PLT".format(ASAN_LIB_INIT),
-    "    popq    %rax",
-    "    retq",
-]
-
-MODULE_DEINIT = [
-    "    .align    16, 0x90",
-    "# BB#0:",
-    "    pushq    %rax",
-    ".Ltmp12:",
-    "    popq    %rax",
-    "    retq",
-]
-
-
-
-### WARNING:
-# the following snippets were copy-pasted from gcc -fsanitize=address, _without_ optimization,
-# so there is probably a faster/shorter alternative!
-
-# MEM_LOAD_1 = """
-        # lsr		{clob2}, {lexp}, 3
-        # mov		{tgt}, 68719476736
-        # ldrsb		{tgt_32}, [{tgt}, {clob2}]
-        # cmp		{tgt_32}, 0
-        # cset		{clob2_32}, ne
-        # and		{clob2_32}, {clob2_32}, 255
-        # and		{clob3}, {clob1}, 7
-        # sxtb		{clob3_32}, {clob3_32}
-        # cmp		{clob3_32}, {tgt_32}
-        # cset		{tgt_32}, ge
-        # and		{tgt_32}, {tgt_32}, 255
-        # and		{tgt_32}, {clob2_32}, {tgt_32}
-        # and		{tgt_32}, {tgt_32}, 255
-        # cbz		{tgt_32}, .LC_ASAN_EX_{addr}
-# """
 
 
 MEM_LOAD_1 = """
-	lsr	{clob1}, {lexp}, 3
-	mov	{clob2}, 68719476736
-	ldrsb	{clob2}, [{clob2}, {clob1}]
-	cbz	{clob2}, .LC_ASAN_EX_{addr}
-	and	{clob1}, {lexp}, 7
-	cmp	{clob1}, {clob2}
+        mov	{rbase}, 68719476736
+	lsr	{r1}, {lexp}, 3
+	ldrsb	{r2}, [{rbase}, {r1}]
+	cbz	{r2}, .LC_ASAN_EX_{addr}
+	and	{r1}, {lexp}, 7
+	cmp	{r1}, {r2}
 	b.lt	.LC_ASAN_EX_{addr}
 """
 
 MEM_LOAD_2 = """
-	lsr	{clob1}, {lexp}, 3
-	mov	{clob2}, 68719476736
-	ldrsb	{clob2}, [{clob2}, {clob1}]
-	cbz	{clob2}, .LC_ASAN_EX_{addr}
-	and	{clob1}, {lexp}, 7
-	add	{clob1}, {clob1}, 1
-	cmp	{clob1}, {clob2}
+        mov	{rbase}, 68719476736
+	lsr	{r1}, {lexp}, 3
+	ldrsb	{r2}, [{rbase}, {r1}]
+	cbz	{r2}, .LC_ASAN_EX_{addr}
+	and	{r1}, {lexp}, 7
+	add	{r1}, {r1}, 1
+	cmp	{r1}, {r2}
 	b.lt	.LC_ASAN_EX_{addr}
 """
 
 MEM_LOAD_4 = """
-	lsr	{clob1}, {lexp}, 3
-	mov	{clob2}, 68719476736
-	ldrsb	{clob2}, [{clob2}, {clob1}]
-	cbz	{clob2}, .LC_ASAN_EX_{addr}
-	and	{clob1}, {lexp}, 7
-	add	{clob1}, {clob1}, 3
-	cmp	{clob1}, {clob2}
+        mov	{rbase}, 68719476736
+	lsr	{r1}, {lexp}, 3
+	ldrsb	{r2}, [{rbase}, {r1}]
+	cbz	{r2}, .LC_ASAN_EX_{addr}
+	and	{r1}, {lexp}, 7
+	add	{r1}, {r1}, 3
+	cmp	{r1}, {r2}
 	b.lt	.LC_ASAN_EX_{addr}
 """
 
-# MEM_LOAD_2 = """
-	# lsr		{clob1}, {lexp}, 3
-	# mov		{clob2}, 68719476736
-	# ldrsb		{clob2_32}, [{clob1}, {clob2}]
-	# cmp		{clob2_32}, 0
-	# cset		{clob1_32}, ne
-	# and		{clob1_32}, {clob1_32}, 255
-	# and		{clob3}, {lexp}, 7
-	# sxtb		{clob3_32}, {clob3_32}
-	# add		{clob3_32}, {clob3_32}, 1
-	# sxtb		{clob3_32}, {clob3_32}
-	# cmp		{clob3_32}, {clob2_32}
-	# cset		{clob2_32}, ge
-	# and		{clob2_32}, {clob2_32}, 255
-	# and		{clob2_32}, {clob1_32}, {clob2_32}
-	# and		{clob2_32}, {clob2_32}, 255
-        # cbz		{clob2_32}, .LC_ASAN_EX_{addr}
-# """
-
-# MEM_LOAD_4 = """
-	# lsr		{clob1}, {lexp}, 3
-	# mov		{clob2}, 68719476736
-	# ldrsb		{clob2_32}, [{clob2}, {clob1}]
-	# cmp		{clob2_32}, 0
-	# cset		{clob1_32}, ne
-	# and		{clob1_32}, {clob1_32}, 255
-	# and		{clob3}, {lexp}, 7
-	# sxtb		{clob3_32}, {clob3_32}
-	# add		{clob3_32}, {clob3_32}, 3
-	# sxtb		{clob3_32}, {clob3_32}
-	# cmp		{clob3_32}, {clob2_32}
-	# cset		{clob2_32}, ge
-	# and		{clob2_32}, {clob2_32}, 255
-	# and		{clob2_32}, {clob1_32}, {clob2_32}
-	# and		{clob2_32}, {clob2_32}, 255
-	# cbz		{clob2_32}, .LC_ASAN_EX_{addr}
-# """
-
-
 MEM_LOAD_8 = """
-	lsr		{clob1}, {lexp}, 3
-	mov		{clob2}, 68719476736
-	ldrsb		{clob2_32}, [{clob2}, {clob1}]
-	cbz		{clob2_32}, .LC_ASAN_EX_{addr}
+        mov		{rbase}, 68719476736
+	lsr		{r1}, {lexp}, 3
+	ldrsb		{r2_32}, [{rbase}, {r1}]
+	cbz		{r2_32}, .LC_ASAN_EX_{addr}
 """
 
 MEM_LOAD_16 = """
-	lsr		{clob1}, {lexp}, 3
-	mov		{clob2}, 68719476736
-	ldrsh		{clob2_32}, [{clob2}, {clob1}]
-	cbz		{clob2_32}, .LC_ASAN_EX_{addr}
+        mov		{rbase}, 68719476736
+	lsr		{r1}, {lexp}, 3
+	ldrsh		{r2_32}, [{rbase}, {r1}]
+	cbz		{r2_32}, .LC_ASAN_EX_{addr}
 """
-
 
 
 MEM_EXIT_LABEL = ".LC_ASAN_EX_{addr}:"
@@ -251,4 +170,23 @@ STACK_PAIR_REG_LOAD = "\tldp {0}, {1}, [sp], 16",    #post-increment
     # "\tleaq -16(%rsp), %rsp",
     # "\tpopq {reg}",
     # "\tpopq %r8",
+# ]
+
+# MODULE_INIT = [
+    # "    .align    16, 0x90",
+    # "# BB#0:",
+    # "    pushq    %rax",
+    # ".Ltmp11:",
+    # "    callq    {}@PLT".format(ASAN_LIB_INIT),
+    # "    popq    %rax",
+    # "    retq",
+# ]
+
+# MODULE_DEINIT = [
+    # "    .align    16, 0x90",
+    # "# BB#0:",
+    # "    pushq    %rax",
+    # ".Ltmp12:",
+    # "    popq    %rax",
+    # "    retq",
 # ]
