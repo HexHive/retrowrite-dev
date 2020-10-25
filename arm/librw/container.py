@@ -5,7 +5,7 @@ from capstone import CS_OP_IMM, CS_OP_MEM, CS_GRP_JUMP, CS_OP_REG
 
 from . import disasm
 from arm.librw.util.logging import *
-from arm.librw.util.arm_util import non_clobbered_registers, memory_replace
+from arm.librw.util.arm_util import non_clobbered_registers, memory_replace, argument_registers
 
 INSTR_SIZE = 4
 
@@ -582,6 +582,8 @@ class InstructionWrapper():
     def reg_reads_common(self):
         if self.mnemonic.startswith("br"):
             return non_clobbered_registers # jumptable, we don't know, assume every reg is used
+        if self.mnemonic.startswith("bl"):
+            return argument_registers      # assume the called function reads arguments
         return self.reg_reads()
 
     def reg_writes(self):

@@ -359,13 +359,19 @@ class Instrument():
 
             is_leaf = fn.analysis.get(StackFrameAnalysis.KEY_IS_LEAF, False)
             for idx, instruction in enumerate(fn.cache):
+                # if fn.name == "S_regclass":
+                    # # 4131
+                # if not (2460 <= idx < 2461): continue
+                # else:
+                    # continue
+
+
                 # if not (115 == idx): continue
                 # Do not instrument instrumented instructions
                 if isinstance(instruction, InstrumentedInstruction):
                     continue
                 if instruction.address in self.skip_instrument:
                     continue
-
 
                 # Do not instrument stack canaries
                 # XXX: if instruction.op_str.startswith(sp.CANARY_CHECK):
@@ -382,7 +388,6 @@ class Instrument():
                     continue
 
                 acsz, bool_load = get_access_size_arm(instruction.cs)
-                debug(f"{instruction} --- acsz: {acsz}, load: {bool_load}")
 
                 if acsz not in [1, 2, 4, 8, 16]:
                     critical("[*] Maybe missed an access: %s -- %d" %
@@ -394,7 +399,16 @@ class Instrument():
                 else:
                     debug("[x] Missing free reglist in cache for function "+fn.name)
                     free_registers = list()
+                    # XXX
+                    # XXX
+                    # XXX
+                    # XXX
+                    # XXX
+                    # XXX
+                    debug("Skipping "+fn.name)
+                    continue
 
+                debug(f"{instruction} --- acsz: {acsz}, load: {bool_load}")
                 iinstr = self.get_mem_instrumentation(
                     acsz, instruction, midx, free_registers, is_leaf, bool_load)
 

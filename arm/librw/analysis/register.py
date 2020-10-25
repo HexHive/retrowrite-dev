@@ -124,8 +124,25 @@ class RegisterAnalysis(object):
                 else:
                     return super(DecimalEncoder, self).default(o)
         info("Starting free registers analysis...")
+
+        c2 = {}
+        for addr, function in container.functions.items():
+            if any([s in function.name for s in ["perl", "Perl"]]):
+                pass
+            else:
+                c2[addr] = function
+
+        print(len(c2))
+
         for addr, function in container.functions.items():
             ra = RegisterAnalysis()
+            # if any([s in function.name for s in ["Perl_utilize", "perl_parse", "Perl_newATTRSUB_x", "S_process_special_blocks.isra.11", "Perl_call_list", "Perl_croak", "Perl_die_unwind"]]):
+            # if addr in sorted(c2.keys())[180:360]: # there is a crash here?
+            # if addr == sorted(c2.keys())[166]:
+            # if "foldEQ" in function.name:
+            # if addr == sorted(c2.keys())[166]:
+            # if "Perl_foldEQ_latin1" == function.name or \
+            # if "S_regmatch" == function.name:
             debug("Analyzing function " + function.name)
             ra.analyze_function(function)
             function.analysis[RegisterAnalysis.KEY] = ra.free_regs
@@ -196,8 +213,11 @@ class RegisterAnalysis(object):
         regwrites = self.compute_reg_set_closure(regwrites)
         regwrites = set(regwrites).difference(reguses)
 
+        # I present to you, the following:
+        # a whole big bunch of capstone bugs :)
         if current_instruction.mnemonic.startswith("cmp") \
-        or current_instruction.mnemonic.startswith("tst"):
+        or current_instruction.mnemonic.startswith("tst") \
+        or current_instruction.mnemonic.startswith("cmn"):
             reguses = reguses.union(regwrites)
 
         for nexti in nexts:
