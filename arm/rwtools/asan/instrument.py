@@ -41,7 +41,7 @@ class Instrument():
                 self.regmap[reg.name] = reg.subregisters[0][0]
 
         # Some stats
-        self.memcheck_sites = defaultdict(list)
+        self.mem_instrumentation_stats = defaultdict(list)
 
         # Skip instrumentation: Set of offsets (addresses) to skip memcheck
         # instrumentation for.
@@ -83,7 +83,7 @@ class Instrument():
         finifn.cache.append(finicode)
         self.rewriter.container.add_function(finifn)
 
-    def get_mem_instrumentation(self, acsz, instruction, midx, free, is_leaf, bool_load):
+    def get_mem_instrumentation(self, acsz, instruction, midx, free, is_leaf, bool_load, rbase_reg):
         if "sp" in instruction.reg_reads() or "sp" in instruction.reg_writes():
             debug("we do not instrument push/pop for now")
             return InstrumentedInstruction("# push/pop")
@@ -98,12 +98,17 @@ class Instrument():
             return InstrumentedInstruction("# Already instrumented - skipping bASAN")
 
         # we prefer high registers, less likely to go wrong
-        affinity = ["x" + str(i) for i in range(18, 0, -1)]
+        affinity = ["x" + str(i) for i in range(17, 1, -1)]
         # do not use registers used by the very same instruction!
         for reg in instruction.reg_reads():
             reg64 = get_64bits_reg(reg) if is_reg_32bits(reg) else reg
             if reg64 in affinity:
                 affinity.remove(reg64)
+        # do not use registers used for batching
+        if rbase_reg:
+            print(affinity)
+            print(rbase_reg)
+            affinity.remove(rbase_reg)
 
         free_regs = sorted(
             list(free),
@@ -118,27 +123,25 @@ class Instrument():
         save_rax = True
         push_cnt = 0
 
-        asan_regs = free_regs[:4] # we need 4 free registers
-        if len(asan_regs) < 4: # if there aren't enough we save them on the stack
+        num_regs_used = 5
+        asan_regs = free_regs[:num_regs_used] # we need 4 free registers
+        if len(asan_regs) < num_regs_used: # if there aren't enough we save them on the stack
             non_free = [reg for reg in affinity if reg not in asan_regs]
-            to_save_regs = non_free[:4 - len(asan_regs)]
+            to_save_regs = non_free[:num_regs_used - len(asan_regs)]
             i = 0
             for i in range(0, len(to_save_regs)-1, 2): # first save them in pairs (faster)
                 save.append(copy.copy(sp.STACK_PAIR_REG_SAVE)[0].format(*to_save_regs[i:i+2]))
                 restore.insert(0, copy.copy(sp.STACK_PAIR_REG_LOAD)[0].format(*to_save_regs[i:i+2]))
-            if i + 2 < len(to_save_regs): # if there is a single one left
-                save.append(copy.copy(sp.STACK_REG_SAVE)[0].format(to_save_regs[i]))
-                restore.insert(0, copy.copy(sp.STACK_REG_LOAD)[0].format(to_save_regs[i]))
+            if len(to_save_regs) % 2 == 1: # if there is a single one left
+                save.append(copy.copy(sp.STACK_REG_SAVE)[0].format(to_save_regs[-1]))
+                restore.insert(0, copy.copy(sp.STACK_REG_LOAD)[0].format(to_save_regs[-1]))
             asan_regs += to_save_regs
             push_cnt += len(to_save_regs)
 
         save_condition_reg = True
-        if save_condition_reg: # should check whether we actually need this or not
-            # XXX: important
-            # XXX: check if you have a free register
-            # XXX: instead of blindly placing on the stack.
-            save.append("\tmrs {0}, nzcv\n\tstr {0}, [sp, -16]!".format(asan_regs[0]))
-            restore.insert(0, "\tldr {0}, [sp], 16\n\tmsr nzcv, {0}".format(asan_regs[0]))
+        if save_condition_reg: # XXX: should check whether we actually need this or not
+            save.append("\tmrs {0}, nzcv".format(asan_regs[4]))
+            restore.insert(0, "\tmsr nzcv, {0}".format(asan_regs[4]))
 
         mem, mem_op_idx = instruction.get_mem_access_op()
         mem_op = instruction.cs.operands[mem_op_idx]
@@ -202,45 +205,13 @@ class Instrument():
             # push_cnt += 32
 
 
-        # XXX:
-        # XXX:
-        # XXX:
-        # if save_rflags == "unopt":
-            # save.append(copy.copy(sp.MEM_FLAG_SAVE)[0])
-            # restore.insert(0, copy.copy(sp.MEM_FLAG_RESTORE)[0])
-            # push_cnt += 1
-        # elif save_rflags == "opt":
-            # push_cnt += 1
-            # if save_rax:
-                # save.append(copy.copy(
-                    # sp.MEM_REG_REG_SAVE_RESTORE)[0].format(src="%rax",
-                                                           # dst=r2[1]))
-                # save.extend(copy.copy(
-                    # sp.MEM_FLAG_SAVE_OPT))
-
-                # save.append(copy.copy(
-                    # sp.MEM_REG_REG_SAVE_RESTORE)[0].format(dst="%rax",
-                                                           # src=r2[1]))
-
-                # restore.insert(0, copy.copy(
-                    # sp.MEM_REG_REG_SAVE_RESTORE)[0].format(dst="%rax",
-                                                           # src=r2[1]))
-
-                # restore = copy.copy(sp.MEM_FLAG_RESTORE_OPT) + restore
-
-                # restore.insert(0, copy.copy(
-                    # sp.MEM_REG_REG_SAVE_RESTORE)[0].format(src="%rax",
-                                                           # dst=r2[1]))
-            # else:
-                # save.extend(copy.copy(
-                    # sp.MEM_FLAG_SAVE_OPT))
-                # restore = copy.copy(sp.MEM_FLAG_RESTORE_OPT) + restore
 
         if push_cnt > 0 and '%rsp' in lexp:
             # In this case we have a stack-relative load but the value of the stack
             # pointer has changed because we pushed some registers to the stack
             # to save them. Adjust the displacement of the access to take this
             # into account
+            # XXX ARM:
             save.append("leaq {}(%rsp), %rsp".format(push_cnt * 8))
             restore.insert(0, "leaq -{}(%rsp), %rsp".format(push_cnt * 8))
 
@@ -257,7 +228,7 @@ class Instrument():
         else:
             assert False, "Reached unreachable code!"
 
-        memcheck += sp.ASAN_REPORT
+        memcheck += copy.copy(sp.ASAN_REPORT)
 
         codecache.extend(save)
         if len(fix_lexp): 
@@ -272,16 +243,12 @@ class Instrument():
         args = dict()
         args["lexp"] = lexp
         args["acsz"] = acsz
-        args["acsz_1"] = acsz - 1
 
-        args["tgt"] = asan_regs[0]
-        args["tgt_32"] = self._get_subreg32(asan_regs[0])
+        args["rbase"] = rbase_reg if rbase_reg else asan_regs[3]
         args["r1"] = asan_regs[1]
         args["r1_32"] = self._get_subreg32(asan_regs[1])
         args["r2"] = asan_regs[2]
         args["r2_32"] = self._get_subreg32(asan_regs[2])
-        args["r3"] = asan_regs[3]
-        args["r3_32"] = self._get_subreg32(asan_regs[3])
 
 
         args["addr"] = instruction.address
@@ -302,67 +269,82 @@ class Instrument():
             # if any([s in fn.name for s in ["alloc", "signal_is_trapped", "free"]]):
                 # info(f"Skipping instrumentation on function {fn.name} to avoid custom heap implementations")
                 # continue
-
             if not len(fn.cache): continue
+            is_leaf = fn.analysis.get(StackFrameAnalysis.KEY_IS_LEAF, False)
+
+            # First, we analyze basic blocks, to check if we can batch instrumentation
             for e, addr in enumerate(sorted(fn.bbstarts)):
                 bb_start = addr
-                bb_end = fn.bbstarts[e+1] - INSTR_SIZE if e+1 < len(fn.bbstarts) else fn.cache[-1].address
+                bb_end = sorted(fn.bbstarts)[e+1] - INSTR_SIZE if e+1 < len(fn.bbstarts) else fn.cache[-1].address
 
+                if bb_start not in fn.addr_to_idx:
+                    critical(f"basic block error: {hex(addr)} not in function {fn.name}, starting at {hex(fn.cache[0].address)}, ending at {hex(fn.cache[-1].address)}")
+                    continue
+                if bb_end not in fn.addr_to_idx:
+                    critical(f"basic block error: {hex(bb_end)} not in function {fn.name}, starting at {hex(fn.cache[0].address)}, ending at {hex(fn.cache[-1].address)}")
+                    continue
+
+                first_instruction = fn.cache[fn.addr_to_idx[bb_start]]
+                last_instruction = fn.cache[fn.addr_to_idx[bb_end]]
+
+                to_instrument = []
                 regs = set(non_clobbered_registers)
 
+                # compute the free regs of this basic block
                 for addr in range(bb_start, bb_end + INSTR_SIZE, INSTR_SIZE):
                     idx = fn.addr_to_idx[addr]
                     free_registers = fn.analysis['free_registers'][idx]
                     regs = regs.intersection(free_registers)
 
+                # compute which instructions we are going to instrument (to_instrument)
+                for addr in range(bb_start, bb_end + INSTR_SIZE, INSTR_SIZE):
+                    idx = fn.addr_to_idx[addr]
+                    instruction = fn.cache[idx]
+
+                    if isinstance(instruction, InstrumentedInstruction) or \
+                       instruction.address in self.skip_instrument:
+                        continue
+
+                    mem, midx = instruction.get_mem_access_op()
+                    if not mem: # This is not a memory access
+                        continue
+
+                    # XXX: not supporting SIMD instructions for now (ld1, st3 ...)
+                    if instruction.cs.reg_name(instruction.cs.operands[0].reg)[0] == 'v':
+                        debug(f"Skipping BAsan instrumentation on SIMD instr {instruction.cs}")
+                        continue
+
+                    free_registers = fn.analysis['free_registers'][idx]
+                    acsz, bool_load = get_access_size_arm(instruction.cs)
+
+                    if acsz not in [1, 2, 4, 8, 16]:
+                        critical(f"[*] Missed an access: {instruction} -- {acsz}")
+                        continue
+
+                    self.mem_instrumentation_stats[fn.start].append(idx)
+                    to_instrument += [(acsz, instruction, midx, free_registers, is_leaf, bool_load)]
+
+                if len(regs) and len(to_instrument) > 1:
+                    rbase_reg = sorted(regs)[0]
+                    # first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x10000000"))
+                    # first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
+                else:
+                    rbase_reg = None
+
+                # now we actually instrument the selected instructions
+                for acsz, instruction, midx, free_registers, is_leaf, bool_load in to_instrument:
+                    debug(f"{instruction} --- acsz: {acsz}, load: {bool_load}")
+                    iinstr = self.get_mem_instrumentation(
+                        acsz, instruction, midx, free_registers, is_leaf, bool_load, None)
+                    instruction.instrument_before(iinstr)
+
+
                 debug(f"{hex(bb_start)}, {hex(bb_end)}")
                 debug(f"{regs}")
-            exit(1)
-
-
-                # compute set of free registers in the bb
 
 
 
-            is_leaf = fn.analysis.get(StackFrameAnalysis.KEY_IS_LEAF, False)
-            for idx, instruction in enumerate(fn.cache):
-                # if not (2460 <= idx < 2461): continue
 
-                # Do not instrument instrumented instructions
-                if isinstance(instruction, InstrumentedInstruction):
-                    continue
-                if instruction.address in self.skip_instrument:
-                    continue
-
-                mem, midx = instruction.get_mem_access_op()
-                if not mem: # This is not a memory access
-                    continue
-
-                # XXX: not supporting SIMD instructions for now (ld1, st3 ...)
-                if instruction.cs.reg_name(instruction.cs.operands[0].reg)[0] == 'v':
-                    debug(f"Skipping BAsan instrumentation on SIMD instr {instruction.cs}")
-                    continue
-
-                acsz, bool_load = get_access_size_arm(instruction.cs)
-
-                if acsz not in [1, 2, 4, 8, 16]:
-                    critical("[*] Maybe missed an access: %s -- %d" %
-                          (instruction, acsz))
-                    continue
-
-                if idx in fn.analysis['free_registers']:
-                    free_registers = fn.analysis['free_registers'][idx]
-                else:
-                    debug("[x] Missing free reglist in cache for function "+fn.name)
-                    free_registers = list()
-
-                debug(f"{instruction} --- acsz: {acsz}, load: {bool_load}")
-                iinstr = self.get_mem_instrumentation(
-                    acsz, instruction, midx, free_registers, is_leaf, bool_load)
-                instruction.instrument_before(iinstr)
-
-                # Save some stats
-                self.memcheck_sites[fn.start].append(idx)
 
 
     def instrument_globals(self):
@@ -627,7 +609,7 @@ class Instrument():
         free_reg_cnt = defaultdict(lambda: 0)
         rflags_stats = [0, 0, 0, 0]
 
-        for addr, sites in self.memcheck_sites.items():
+        for addr, sites in self.mem_instrumentation_stats.items():
             count += len(sites)
             fn = self.rewriter.container.functions[addr]
             for site in sites:
