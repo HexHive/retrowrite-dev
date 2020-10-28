@@ -11,10 +11,10 @@ ASAN_LIB_INIT = "__asan_init"
 ASAN_MEM_EXIT = ".LC_ASAN_EX"
 ASAN_MEM_ENTER = ".LC_ASAN_ENTER"
 
+ASAN_BASE = "	mov {rbase}, 0x1000000000"
 
 
 MEM_LOAD_1 = """
-	mov	{rbase}, 0x1000000000
 	lsr	{r1}, {lexp}, 3
 	ldrsb	{r2}, [{rbase}, {r1}]
 	cbz	{r2}, .LC_ASAN_EX_{addr}
@@ -24,7 +24,6 @@ MEM_LOAD_1 = """
 """
 
 MEM_LOAD_2 = """
-	mov	{rbase}, 0x1000000000
 	lsr	{r1}, {lexp}, 3
 	ldrsb	{r2}, [{rbase}, {r1}]
 	cbz	{r2}, .LC_ASAN_EX_{addr}
@@ -35,7 +34,6 @@ MEM_LOAD_2 = """
 """
 
 MEM_LOAD_4 = """
-	mov	{rbase}, 0x1000000000
 	lsr	{r1}, {lexp}, 3
 	ldrsb	{r2}, [{rbase}, {r1}]
 	cbz	{r2}, .LC_ASAN_EX_{addr}
@@ -46,14 +44,12 @@ MEM_LOAD_4 = """
 """
 
 MEM_LOAD_8 = """
-	mov		{rbase}, 0x1000000000
 	lsr		{r1}, {lexp}, 3
 	ldrsb		{r2_32}, [{rbase}, {r1}]
 	cbz		{r2_32}, .LC_ASAN_EX_{addr}
 """
 
 MEM_LOAD_16 = """
-	mov		{rbase}, 0x1000000000
 	lsr		{r1}, {lexp}, 3
 	ldrsh		{r2_32}, [{rbase}, {r1}]
 	cbz		{r2_32}, .LC_ASAN_EX_{addr}

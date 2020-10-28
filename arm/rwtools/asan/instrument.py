@@ -98,22 +98,23 @@ class Instrument():
             return InstrumentedInstruction("# Already instrumented - skipping bASAN")
 
         # we prefer high registers, less likely to go wrong
-        affinity = ["x" + str(i) for i in range(17, 1, -1)]
+        affinity = ["x" + str(i) for i in range(17, -1, -1)]
         # do not use registers used by the very same instruction!
         for reg in instruction.reg_reads():
             reg64 = get_64bits_reg(reg) if is_reg_32bits(reg) else reg
             if reg64 in affinity:
                 affinity.remove(reg64)
-        # do not use registers used for batching
-        if rbase_reg:
-            print(affinity)
-            print(rbase_reg)
-            affinity.remove(rbase_reg)
+
 
         free_regs = sorted(
             list(free),
             key=lambda x: affinity.index(x) if x in affinity else len(affinity))
 
+        # do not use registers used for batching
+        if rbase_reg and rbase_reg in free_regs:
+            print(affinity)
+            print(rbase_reg)
+            free_regs.remove(rbase_reg)
 
         codecache = list()
         save = list()
@@ -123,6 +124,8 @@ class Instrument():
         save_rax = True
         push_cnt = 0
 
+        # XXX: for access sizes 8 and 16:
+        # we need one register less
         num_regs_used = 5
         asan_regs = free_regs[:num_regs_used] # we need 4 free registers
         if len(asan_regs) < num_regs_used: # if there aren't enough we save them on the stack
@@ -215,16 +218,21 @@ class Instrument():
             save.append("leaq {}(%rsp), %rsp".format(push_cnt * 8))
             restore.insert(0, "leaq -{}(%rsp), %rsp".format(push_cnt * 8))
 
+        memcheck = ""
+
+        if not rbase_reg: # we could not batch the ASAN base
+            memcheck += copy.copy(sp.ASAN_BASE)
+
         if acsz == 1:
-            memcheck = copy.copy(sp.MEM_LOAD_1)
+            memcheck += copy.copy(sp.MEM_LOAD_1)
         elif acsz == 2:
-            memcheck = copy.copy(sp.MEM_LOAD_2)
+            memcheck += copy.copy(sp.MEM_LOAD_2)
         elif acsz == 4:
-            memcheck = copy.copy(sp.MEM_LOAD_4)
+            memcheck += copy.copy(sp.MEM_LOAD_4)
         elif acsz == 8:
-            memcheck = copy.copy(sp.MEM_LOAD_8)
+            memcheck += copy.copy(sp.MEM_LOAD_8)
         elif acsz == 16:
-            memcheck = copy.copy(sp.MEM_LOAD_16)
+            memcheck += copy.copy(sp.MEM_LOAD_16)
         else:
             assert False, "Reached unreachable code!"
 
@@ -244,11 +252,11 @@ class Instrument():
         args["lexp"] = lexp
         args["acsz"] = acsz
 
-        args["rbase"] = rbase_reg if rbase_reg else asan_regs[3]
         args["r1"] = asan_regs[1]
         args["r1_32"] = self._get_subreg32(asan_regs[1])
         args["r2"] = asan_regs[2]
         args["r2_32"] = self._get_subreg32(asan_regs[2])
+        args["rbase"] = rbase_reg if rbase_reg else asan_regs[3]
 
 
         args["addr"] = instruction.address
@@ -294,6 +302,8 @@ class Instrument():
                 for addr in range(bb_start, bb_end + INSTR_SIZE, INSTR_SIZE):
                     idx = fn.addr_to_idx[addr]
                     free_registers = fn.analysis['free_registers'][idx]
+                    if fn.cache[idx].mnemonic.startswith("bl"): # XXX: WTFFFFFF
+                        regs = set()
                     regs = regs.intersection(free_registers)
 
                 # compute which instructions we are going to instrument (to_instrument)
@@ -326,8 +336,7 @@ class Instrument():
 
                 if len(regs) and len(to_instrument) > 1:
                     rbase_reg = sorted(regs)[0]
-                    # first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x10000000"))
-                    # first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
+                    first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
                 else:
                     rbase_reg = None
 
@@ -335,7 +344,7 @@ class Instrument():
                 for acsz, instruction, midx, free_registers, is_leaf, bool_load in to_instrument:
                     debug(f"{instruction} --- acsz: {acsz}, load: {bool_load}")
                     iinstr = self.get_mem_instrumentation(
-                        acsz, instruction, midx, free_registers, is_leaf, bool_load, None)
+                        acsz, instruction, midx, free_registers, is_leaf, bool_load, rbase_reg)
                     instruction.instrument_before(iinstr)
 
 
