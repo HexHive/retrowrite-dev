@@ -339,12 +339,12 @@ class Instrument():
                     self.mem_instrumentation_stats[fn.start].append(idx)
                     to_instrument += [(acsz, instruction, midx, free_registers, is_leaf, bool_load)]
 
-                # if len(regs) and len(to_instrument) > 1:
-                    # rbase_reg = sorted(regs)[-1]
-                    # first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
-                # else:
-                    # rbase_reg = None
-                rbase_reg = None
+                if len(regs) and len(to_instrument) > 1:
+                    rbase_reg = sorted(regs)[-1]
+                    first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
+                else:
+                    rbase_reg = None
+                # rbase_reg = None
 
                 # now we actually instrument the selected instructions
                 for acsz, instruction, midx, free_registers, is_leaf, bool_load in to_instrument:
