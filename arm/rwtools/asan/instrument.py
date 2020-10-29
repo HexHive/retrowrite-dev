@@ -86,13 +86,13 @@ class Instrument():
     def get_mem_instrumentation(self, acsz, instruction, midx, free, is_leaf, bool_load, rbase_reg):
         if "sp" in instruction.reg_reads() or "sp" in instruction.reg_writes():
             debug("we do not instrument push/pop for now")
-            return InstrumentedInstruction("# push/pop")
+            return InstrumentedInstruction("# not instrumented - push/pop")
         if "x29" in instruction.reg_reads() or "x29" in instruction.reg_writes():
             debug("we do not instrument stack frames for now")
-            return InstrumentedInstruction("# stackframe push/pop")
+            return InstrumentedInstruction("# not instrumented - stackframe push/pop")
         if "x28" in instruction.reg_reads() or "x28" in instruction.reg_writes():
             debug("we do not instrument stack frames for now")
-            return InstrumentedInstruction("# stackframe push/pop")
+            return InstrumentedInstruction("# not instrumented - stackframe push/pop")
         if len(instruction.before) > 0 or len(instruction.after) > 0 or\
             (instruction.mnemonic == "ldr" and "=" in instruction.op_str):
             return InstrumentedInstruction("# Already instrumented - skipping bASAN")
@@ -274,9 +274,9 @@ class Instrument():
 
     def instrument_mem_accesses(self):
         for _, fn in self.rewriter.container.functions.items():
-            # if any([s in fn.name for s in ["alloc", "signal_is_trapped", "free"]]):
-                # info(f"Skipping instrumentation on function {fn.name} to avoid custom heap implementations")
-                # continue
+            if any([s in fn.name for s in ["alloc", "signal_is_trapped", "free"]]):
+                info(f"Skipping instrumentation on function {fn.name} to avoid custom heap implementations")
+                continue
             if not len(fn.cache): continue
             is_leaf = fn.analysis.get(StackFrameAnalysis.KEY_IS_LEAF, False)
 
@@ -297,6 +297,7 @@ class Instrument():
 
                 to_instrument = []
                 regs = set(non_clobbered_registers)
+                regs.remove("x0") # cannot overwrite return value
 
                 # compute the free regs of this basic block
                 for addr in range(bb_start, bb_end + INSTR_SIZE, INSTR_SIZE):
@@ -324,6 +325,10 @@ class Instrument():
                         debug(f"Skipping BAsan instrumentation on SIMD instr {instruction.cs}")
                         continue
 
+                    # look at start of get_mem_instrumentation()
+                    if any([x in instruction.reg_reads() + instruction.reg_writes() for x in ["sp", "x29", "x28"]]):
+                        continue
+
                     free_registers = fn.analysis['free_registers'][idx]
                     acsz, bool_load = get_access_size_arm(instruction.cs)
 
@@ -334,11 +339,12 @@ class Instrument():
                     self.mem_instrumentation_stats[fn.start].append(idx)
                     to_instrument += [(acsz, instruction, midx, free_registers, is_leaf, bool_load)]
 
-                if len(regs) and len(to_instrument) > 1:
-                    rbase_reg = sorted(regs)[0]
-                    first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
-                else:
-                    rbase_reg = None
+                # if len(regs) and len(to_instrument) > 1:
+                    # rbase_reg = sorted(regs)[-1]
+                    # first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
+                # else:
+                    # rbase_reg = None
+                rbase_reg = None
 
                 # now we actually instrument the selected instructions
                 for acsz, instruction, midx, free_registers, is_leaf, bool_load in to_instrument:

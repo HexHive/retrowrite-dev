@@ -143,8 +143,9 @@ class RegisterAnalysis(object):
             # if addr == sorted(c2.keys())[166]:
             # if "Perl_foldEQ_latin1" == function.name or \
             # if "S_regmatch" == function.name:
-            debug("Analyzing function " + function.name)
-            ra.analyze_function(function)
+            if not ".part." in function.name:
+                debug("Analyzing function " + function.name)
+                ra.analyze_function(function)
             function.analysis[RegisterAnalysis.KEY] = ra.free_regs
 
     def analyze_function(self, function):

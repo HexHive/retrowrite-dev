@@ -34,7 +34,7 @@ def results_to_csv(inputs, out):
                 if len(line) < 2: break
                 if line[-1] != "NR":
                     benchmark = line[0].strip()
-                    if any([x in benchmark for x in ["x264", "gcc", "nab"]]):
+                    if any([x in benchmark for x in ["x264", "gcc", "nab", "imagick", "lbm"]]):
                         continue
                     all_benchs.add(benchmark)
                     results[key][benchmark] = float(line[2].strip())
@@ -87,31 +87,32 @@ def plot_diff(outf):
     df = pandas.read_csv(csvf)
     numrows = len(df.index)
     df.loc[numrows, "benchmark"] = "Average"
-    print(df.shape)
     for x in range(1, len(df.columns.values)):
         df.iloc[numrows, x] = sum([df.iloc[i, x] for i in range(numrows)])
 
     print(df)
+    print("Overhead on baseline")
     for i in range(len(df.iloc[:])):
         for x in range(2, len(df.columns.values)):
+            if df.columns[x] == "Baseline": continue
             df.iloc[i, x] /= df.iloc[i]["Baseline"]
 
     print(df)
 
-    # import IPython; IPython.embed() 
-    # df = df.set_index("benchmark")
-    # heads = list(df.columns.values)
-    # sidx = heads.index("Source Asan")
-    # bidx = heads.index("Binary Asan")
-    # vidx = heads.index("Valgrind")
+    df = pandas.read_csv(csvf)
+    numrows = len(df.index)
+    df.loc[numrows, "benchmark"] = "Average"
+    for x in range(1, len(df.columns.values)):
+        df.iloc[numrows, x] = sum([df.iloc[i, x] for i in range(numrows)])
 
-    # val = df.values
-    # bin_vs_src = 100.0 * ((val[:, bidx] - val[:, sidx]) / val[:, sidx])
-    # bin_vs_vgrind = 100.0 * ((val[:, bidx] - val[:, vidx]) / val[:, bidx])
-    # print(val)
-    # print(heads)
-    # print(bin_vs_src)
-    # print(bin_vs_vgrind)
+    print("Overhead on source ASAN")
+    for i in range(len(df.iloc[:])):
+        for x in range(2, len(df.columns.values)):
+            if df.columns[x] == "Source_Asan": continue
+            df.iloc[i, x] /= df.iloc[i]["Source_Asan"]
+
+    print(df)
+
 
 
 if __name__ == "__main__":

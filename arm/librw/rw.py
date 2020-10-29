@@ -776,7 +776,6 @@ class Symbolizer():
             reg_name3 = inst2.cs.reg_name(inst2.cs.operands[1].reg)
 
             if inst2.mnemonic.startswith("str"):
-                Rewriter.literal_saves += 1
                 old_mnemonic = inst2.mnemonic
                 # if reg_name2 == orig_reg:  # str <orig_reg>, [...]
                 inst2.instrument_before(InstrumentedInstruction(
@@ -793,10 +792,8 @@ class Symbolizer():
                     # inst2.instrument_after(InstrumentedInstruction(
                         # f"{old_mnemonic} {reg_name2}, [{reg_name3}]"))
             elif is_an_import:
-                Rewriter.literal_saves += 1
                 inst2.op_str =  reg_name2 + f", =%s" % (is_an_import)
             else:
-                Rewriter.literal_saves += 1
                 if is_reg_32bits(reg_name2):
                     reg_name2 = get_64bits_reg(reg_name2)
                 if inst2.mnemonic == "add":
