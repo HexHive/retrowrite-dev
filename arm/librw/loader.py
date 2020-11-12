@@ -21,6 +21,24 @@ class Loader():
         self.container = Container()
         print(self.elffile['e_type'])
 
+    def is_stripped(self):
+        # Get the symbol table entry for the respective symbol
+        symtab = self.elffile.get_section_by_name('.symtab')
+        if not symtab:
+            print('No symbol table available, this file is probably stripped!')
+            return True
+
+        sym = symtab.get_symbol_by_name("main")[0]
+        if not sym:
+            print('Symbol {} not found')
+            return True
+        return False
+
+    def is_pie(self):
+        base_address = next(seg for seg in self.elffile.iter_segments() 
+                if seg['p_type'] == "PT_LOAD")['p_vaddr']
+        return self.elffile['e_type'] == 'ET_DYN' and base_address == 0
+
     def load_functions(self, fnlist):
         debug(f"Loading functions...")
         section = self.elffile.get_section_by_name(".text")
