@@ -16,11 +16,12 @@ set -o pipefail
 COMMIT_MSG=$(git log -1 --pretty=%B | tr '/. ' '___')
 COMMIT_SHA=$(git rev-parse --short HEAD)
 WORKDIR=${COMMIT_SHA}_${COMMIT_MSG}
-export BENCHDIR=$(find ~ -name "cpu2017_runner" -type d -maxdepth 3 | head -n 1)  # needed by run_test.py # this is peak research code
+export BENCHDIR=$(find / -name "cpu2017_runner" -type d -maxdepth 4 | head -n 1)  # needed by run_test.py # this is peak research code
 
 
 [[ $(echo $COMMIT_MSG | grep -ic "Experiment") -eq 0 ]] && exit 0  # if "Experiment" is not in the commit message, quit
 [[ ${#BENCHDIR} -eq 0 ]] && echo "cpu2017_runner folder not found. Please store it in your home folder!" && exit 1
+[[ ! -d ~/bins ]] && ln -s /data/bins ~/bins  # for cloudlab, bins cannot be in home dir
 
 # prerequisites
 sudo apt install python3-pip libjpeg-dev zlib1g-dev poppler-utils -y 

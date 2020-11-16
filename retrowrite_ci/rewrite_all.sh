@@ -11,9 +11,11 @@ mkdir -p bins_rw
 for binary_full in ~/bins/*; do
 	binary=$(basename $binary_full)
 	[[ $binary =~ "ldecod" ]] && continue
-	[[ $binary =~ "gcc" ]] && continue
 	[[ $binary =~ "x264" ]] && continue
-	#[[ $binary =~ "mcf" ]] || continue
+
+	if [[ ! $(hostname) =~ "cloudlab" ]]; then
+		[[ $binary =~ "gcc" ]] && continue # run gcc only on cloudlab
+	fi
 
 	if [[ $1 == "nothing" ]]; then
 		echo "Not touching ${binary}..."
