@@ -30,6 +30,6 @@ else
 	[[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
 
 	echo 
-	echo -e "\e[31mPerfect, now run '\e[34mgit push all\e[31m' to run the benchmark!\e[0m"
+	echo -e "\e[31mPerfect, now run '\e[34mgit push\e[31m' to run the benchmark!\e[0m"
 	echo 
 fi
