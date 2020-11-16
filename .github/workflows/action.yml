@@ -21,3 +21,10 @@ jobs:
 
       - name: SPEC CPU Benchmark
         run: bash retrowrite_ci/runner.sh
+
+      # upload results to github in case they get lost
+      - name: Upload results
+        uses: actions/upload-artifact@v2
+        with:
+          name: result
+          path: ~/result

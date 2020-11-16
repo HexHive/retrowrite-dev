@@ -71,6 +71,7 @@ pdftoppm -jpeg -r 300 out.pdf plot_image
 
 
 # send to telegram
+cp /data/.telegram_uid &&  /data/.telegram_botkey ~/ || true
 if [[ -f ~/.telegram_uid && -f ~/.telegram_botkey ]]; then
 	USERID=$(cat ~/.telegram_uid | tr -d "\n")
 	KEY=$(cat ~/.telegram_botkey | tr -d "\n")
