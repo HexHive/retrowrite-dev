@@ -23,7 +23,7 @@ export BENCHDIR=$(find ~ -name "cpu2017_runner" -type d -maxdepth 3 | head -n 1)
 [[ ${#BENCHDIR} -eq 0 ]] && echo "cpu2017_runner folder not found. Please store it in your home folder!" && exit 1
 
 # prerequisites
-sudo apt install libjpeg-dev zlib1g-dev poppler-utils -y 
+sudo apt install python3-pip libjpeg-dev zlib1g-dev poppler-utils -y 
 PIP_IGNORE_INSTALLED=0 pip3 install cython
 PIP_IGNORE_INSTALLED=0 pip3 install numpy 
 PIP_IGNORE_INSTALLED=0 pip3 install matplotlib pandas capstone pyelftools archinfo intervaltree 
