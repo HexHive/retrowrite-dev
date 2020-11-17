@@ -35,7 +35,8 @@ def results_to_csv(inputs, out):
                 if line[-1] != "NR":
                     benchmark = line[0].strip()
                     # if any([x in benchmark for x in ["x264", "gcc", "nab", "imagick", "lbm"]]):
-                    if any([x in benchmark for x in ["x264", "gcc", "nab", ]]):
+                    # if any([x in benchmark for x in ["x264", "gcc", "nab", ]]):
+                    if any([x in benchmark for x in ["x264" ]]):
                         continue
                     all_benchs.add(benchmark)
                     results[key][benchmark] = float(line[2].strip())
