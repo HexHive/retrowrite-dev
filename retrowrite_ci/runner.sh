@@ -13,7 +13,7 @@
 set -eux
 set -o pipefail
 
-COMMIT_MSG=$(git log -1 --pretty=%B | tr '/. ' '___')
+COMMIT_MSG=$(git log -1 --pretty=%B | tr '/. :' '____')
 COMMIT_SHA=$(git rev-parse --short HEAD)
 WORKDIR=${COMMIT_SHA}_${COMMIT_MSG}
 export BENCHDIR=$(find / -name "cpu2017_runner" -type d -maxdepth 4 | head -n 1)  # needed by run_test.py # this is peak research code
@@ -71,7 +71,7 @@ pdftoppm -jpeg -r 300 out.pdf plot_image
 
 
 # send to telegram
-cp /data/.telegram_uid &&  /data/.telegram_botkey ~/ || true
+cp /data/.telegram_uid /data/.telegram_botkey ~/ || true
 if [[ -f ~/.telegram_uid && -f ~/.telegram_botkey ]]; then
 	USERID=$(cat ~/.telegram_uid | tr -d "\n")
 	KEY=$(cat ~/.telegram_botkey | tr -d "\n")
