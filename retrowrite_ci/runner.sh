@@ -65,7 +65,7 @@ cat plots/CPU2017.001.*.txt > plots/bASAN.txt || true
 # generate plot
 cd plots
 #python3 analyze_spec_results.py --inputs baseline.088_099.txt symbolized.090_096.txt source_asan.040.txt binary_asan.045_046_102.txt bASAN_563b724.txt bASAN.txt --plot out --pp
-python3 analyze_spec_results.py --inputs cloudlab_{baseline,source_asan,basan,valgrind}.txt --plot out --pp
+python3 analyze_spec_results.py --inputs cloudlab_{baseline,source_asan,basan,valgrind}.txt bASAN.txt --plot out --pp
 
 pdftoppm -jpeg -r 300 out.pdf plot_image
 
