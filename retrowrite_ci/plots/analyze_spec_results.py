@@ -92,6 +92,10 @@ def plot_diff(outf):
     for x in range(1, len(df.columns.values)):
         df.iloc[numrows, x] = sum([df.iloc[i, x] for i in range(numrows)])
 
+    if "Baseline" not in df.columns:
+        print("Baseline not found")
+        exit(0)
+
     print(df)
     print("Overhead on baseline")
     for i in range(len(df.iloc[:])):
