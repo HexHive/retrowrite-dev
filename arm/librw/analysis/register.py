@@ -144,6 +144,7 @@ class RegisterAnalysis(object):
             # if "Perl_foldEQ_latin1" == function.name or \
             # if "S_regmatch" == function.name:
             if not ".part." in function.name and not "invlist_iternext" in function.name:
+                # if "yylex" in function.name: 
                 debug("Analyzing function " + function.name)
                 ra.analyze_function(function)
             function.analysis[RegisterAnalysis.KEY] = ra.free_regs

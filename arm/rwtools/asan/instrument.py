@@ -344,7 +344,7 @@ class Instrument():
                     first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
                 else:
                     rbase_reg = None
-                # rbase_reg = None
+                rbase_reg = None
 
                 # now we actually instrument the selected instructions
                 for acsz, instruction, midx, free_registers, is_leaf, bool_load in to_instrument:
