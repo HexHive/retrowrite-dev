@@ -680,6 +680,7 @@ class Symbolizer():
                 else:
                     critical(f"Missed global resolved address on {inst2} from {inst}")
 
+            print(inst2.address, inst2, inst2.reg_writes_common())
             if p.orig_reg in inst2.reg_writes_common():
                 if len(p.stack_stores) == 0:
                     del paths[0] # we overwrote the register we're trying to resolve, so abandon this path
@@ -759,10 +760,6 @@ class Symbolizer():
                 debug(f"Warning: skipping {inst2} as not supported in global address emulation")
                 continue
 
-            dereference_resolved = True
-            if inst2.mnemonic == "add":
-                dereference_resolved = False
-
             is_an_import = False
             for rel in container.relocations[".dyn"]:
                 if rel['st_value'] == resolved_address or rel['offset'] == resolved_address:
@@ -772,37 +769,46 @@ class Symbolizer():
                     is_an_import = container.plt[resolved_address]
                     break
 
-            reg_name2 = inst2.cs.reg_name(inst2.cs.operands[0].reg)
-            reg_name3 = inst2.cs.reg_name(inst2.cs.operands[1].reg)
+            # reg_name2 = inst2.cs.reg_name(inst2.cs.operands[0].reg)
+            # reg_name3 = inst2.cs.reg_name(inst2.cs.operands[1].reg)
 
-            if inst2.mnemonic.startswith("str"):
-                old_mnemonic = inst2.mnemonic
-                # if reg_name2 == orig_reg:  # str <orig_reg>, [...]
-                inst2.instrument_before(InstrumentedInstruction(
-                    "adrp %s, .LC%x" % (reg_name2, resolved_address)))
-                inst2.instrument_before(InstrumentedInstruction(
-                    "add %s, %s, :lo12:.LC%x" % (reg_name2, reg_name2, resolved_address)))
-                # else:                      # str ..., [<orig_reg> + ...]
-                    # inst2.instrument_before(InstrumentedInstruction(
-                        # "adrp %s, .LC%x" % (reg_name2, resolved_address)))
-                    # inst2.instrument_before(InstrumentedInstruction(
-                        # "add %s, %s, :lo12:.LC%x" % (reg_name2, reg_name2, resolved_address)))
-                    # inst2.mnemonic =  "ldr"
-                    # inst2.op_str =  reg_name3 + f", =.LC%x" % (resolved_address)
-                    # inst2.instrument_after(InstrumentedInstruction(
-                        # f"{old_mnemonic} {reg_name2}, [{reg_name3}]"))
-            elif is_an_import:
+            # if inst2.mnemonic.startswith("str"):
+                # old_mnemonic = inst2.mnemonic
+                # # if reg_name2 == orig_reg:  # str <orig_reg>, [...]
+                # inst2.instrument_before(InstrumentedInstruction(
+                    # "adrp %s, .LC%x" % (reg_name2, resolved_address)))
+                # inst2.instrument_before(InstrumentedInstruction(
+                    # "add %s, %s, :lo12:.LC%x" % (reg_name2, reg_name2, resolved_address)))
+                # # else:                      # str ..., [<orig_reg> + ...]
+                    # # inst2.instrument_before(InstrumentedInstruction(
+                        # # "adrp %s, .LC%x" % (reg_name2, resolved_address)))
+                    # # inst2.instrument_before(InstrumentedInstruction(
+                        # # "add %s, %s, :lo12:.LC%x" % (reg_name2, reg_name2, resolved_address)))
+                    # # inst2.mnemonic =  "ldr"
+                    # # inst2.op_str =  reg_name3 + f", =.LC%x" % (resolved_address)
+                    # # inst2.instrument_after(InstrumentedInstruction(
+                        # # f"{old_mnemonic} {reg_name2}, [{reg_name3}]"))
+            # elif is_an_import:
+                # inst2.op_str =  reg_name2 + f", =%s" % (is_an_import)
+            # else:
+                # if is_reg_32bits(reg_name2):
+                    # reg_name2 = get_64bits_reg(reg_name2)
+                # if inst2.mnemonic == "add":
+                    # inst2.mnemonic = "// " + inst2.mnemonic
+
+
+
+            if is_an_import:
                 inst2.op_str =  reg_name2 + f", =%s" % (is_an_import)
             else:
-                if is_reg_32bits(reg_name2):
-                    reg_name2 = get_64bits_reg(reg_name2)
+                inst2.instrument_before(InstrumentedInstruction(
+                    "adrp %s, .LC%x" % (orig_reg, resolved_address)))
+                inst2.instrument_before(InstrumentedInstruction(
+                    "add %s, %s, :lo12:.LC%x" % (orig_reg, orig_reg, resolved_address)))
+
                 if inst2.mnemonic == "add":
                     inst2.mnemonic = "// " + inst2.mnemonic
 
-                inst2.instrument_before(InstrumentedInstruction(
-                    "adrp %s, .LC%x" % (reg_name2, resolved_address)))
-                inst2.instrument_before(InstrumentedInstruction(
-                    "add %s, %s, :lo12:.LC%x" % (reg_name2, reg_name2, resolved_address)))
 
             inst2.op_str += " // from adrp at 0x%x" % (inst.address)
 

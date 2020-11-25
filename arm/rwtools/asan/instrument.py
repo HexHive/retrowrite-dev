@@ -93,6 +93,7 @@ class Instrument():
         if "x28" in instruction.reg_reads() or "x28" in instruction.reg_writes():
             debug("we do not instrument stack frames for now")
             return InstrumentedInstruction("# not instrumented - stackframe push/pop")
+        #XXX: this should skip only other ASAN instrumentation, not any instrumentation in general
         if len(instruction.before) > 0 or len(instruction.after) > 0 or\
             (instruction.mnemonic == "ldr" and "=" in instruction.op_str):
             return InstrumentedInstruction("# Already instrumented - skipping bASAN")
