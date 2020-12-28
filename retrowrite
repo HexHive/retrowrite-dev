@@ -6,6 +6,8 @@ import tempfile
 import subprocess
 import os
 import sys
+import traceback
+import importlib
 
 def load_analysis_cache(loader, outfile):
     with open(outfile + ".analysis_cache") as fd:
@@ -34,7 +36,7 @@ def save_analysis_cache(loader, outfile):
         json.dump(analysis, fd)
 
 
-def asan(rw, loader, args):
+def analyze_registers(loader, args):
     StackFrameAnalysis.analyze(loader.container)
     if args.cache:
         try:
@@ -45,10 +47,13 @@ def asan(rw, loader, args):
     else:
         RegisterAnalysis.analyze(loader.container)
 
+def asan(rw, loader, args):
+    analyze_registers(loader, args)
 
     instrumenter = Instrument(rw)
     instrumenter.do_instrument()
     instrumenter.dump_stats()
+
 
 def asank(rw, loader, args):
     StackFrameAnalysis.analyze(loader.container)
@@ -84,6 +89,10 @@ if __name__ == "__main__":
                       help="Add binary address sanitizer instrumentation")
     # python3 -m rwtools.asan.asantool /bin/ls ls-basan-instrumented
 
+    argp.add_argument("-m", "--module", type=str,
+                      help="Use specified instrumentation module in rwtools directory")
+
+
     argp.add_argument("-s", "--assembly", action="store_true",
                       help="Generate Symbolized Assembly")
     # python3 -m librw.rw </path/to/binary> <path/to/output/asm/files>
@@ -104,9 +113,12 @@ if __name__ == "__main__":
 
     args = argp.parse_args()
 
+    rwtools_path = "rwtools."
+
     from elftools.elf.elffile import ELFFile
     elffile = ELFFile(open(args.bin, "rb"))
     arch = elffile.get_machine_arch()
+
 
     if arch == "AArch64":
         from arm.librw.rw import Rewriter
@@ -116,6 +128,9 @@ if __name__ == "__main__":
         from arm.librw.loader import Loader
         from arm.librw.analysis import register
         import arm.librw.util.logging
+
+        rwtools_path = "arm." + rwtools_path
+
         if args.verbose:
             arm.librw.util.logging.DEBUG_LOG = True
 
@@ -125,9 +140,6 @@ if __name__ == "__main__":
             from librw import krw
             from librw.analysis.kregister import RegisterAnalysis
             from librw.analysis.kstackframe import StackFrameAnalysis
-            from rwtools.kasan.instrument import Instrument
-            from rwtools.kasan.asantool import KcovInstrument
-            from rwtools.kasan import asantool
             from librw.kloader import Loader
             from librw.analysis import kregister
         else:
@@ -149,7 +161,7 @@ if __name__ == "__main__":
         print("If you really want to continue, because you think retrowrite has made a mistake, pass --ignore-no-pie.")
         sys.exit(1)
     if loader.is_stripped() == True and args.ignore_stripped == False:
-        print("RetroWrite requires a none stripped executable.")
+        print("RetroWrite requires a non-stripped executable.")
         print("It looks like %s is stripped" % args.bin)
         print("If you really want to continue, because you think retrowrite has made a mistake, pass --ignore-stripped.")
         sys.exit(1)
@@ -188,6 +200,16 @@ if __name__ == "__main__":
         else:
             asan(rw, loader, args)
             rw.dump()
-    else:
+    elif args.module:
+        try:
+            module = importlib.import_module(rwtools_path + args.module + ".instrument")
+            instrument = getattr(module, "Instrument")
 
+            analyze_registers(loader, args)
+            instrumenter = instrument(rw)
+            instrumenter.do_instrument()
+            rw.dump()
+        except Exception as e:
+            traceback.print_exc()
+    else:
         rw.dump()

@@ -293,7 +293,7 @@ Report generated on 2020-11-17 12:34:43 by CPU2017 ASCII formatter v5178.
                 Base     Base       Base        Peak     Peak       Peak
 Benchmarks     Copies  Run Time     Rate       Copies  Run Time     Rate 
 -------------- ------  ---------  ---------    ------  ---------  ---------   
-500.perlbench_r      1     0.0766            RE                                 
+500.perlbench_r      1       4955      0.321  *
 502.gcc_r                                   NR                                 
 505.mcf_r           1  2758           0.586  *                                 
 520.omnetpp_r                               NR                                 
@@ -304,7 +304,7 @@ Benchmarks     Copies  Run Time     Rate       Copies  Run Time     Rate
 548.exchange2_r                              NR                                 
 557.xz_r            1  2242           0.482  *                                 
 ==============================================================================
-500.perlbench_r                              NR                                 
+500.perlbench_r      1       4955      0.321  *
 502.gcc_r                                   NR                                 
 505.mcf_r           1  2758           0.586  *                                 
 520.omnetpp_r                               NR                                 
@@ -526,3 +526,4 @@ For other inquiries, please contact info@spec.org.
 Copyright 2017-2020 Standard Performance Evaluation Corporation
 Tested with SPEC CPU2017 v1.0.1 on 2020-11-17 12:34:44-0700.
 Report generated on 2020-11-17 13:58:30 by CPU2017 ASCII formatter v5178.
+500.perlbench_r                              NR                                 

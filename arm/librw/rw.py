@@ -680,7 +680,6 @@ class Symbolizer():
                 else:
                     critical(f"Missed global resolved address on {inst2} from {inst}")
 
-            print(inst2.address, inst2, inst2.reg_writes_common())
             if p.orig_reg in inst2.reg_writes_common():
                 if len(p.stack_stores) == 0:
                     del paths[0] # we overwrote the register we're trying to resolve, so abandon this path
@@ -798,13 +797,16 @@ class Symbolizer():
 
 
 
+            # if is_reg_32bits(reg_name2):
+                # reg_name2 = get_64bits_reg(reg_name2)
             if is_an_import:
                 inst2.op_str =  reg_name2 + f", =%s" % (is_an_import)
             else:
+                target_reg = inst2.cs.reg_name(inst2.cs.operands[0].reg)
                 inst2.instrument_before(InstrumentedInstruction(
                     "adrp %s, .LC%x" % (orig_reg, resolved_address)))
                 inst2.instrument_before(InstrumentedInstruction(
-                    "add %s, %s, :lo12:.LC%x" % (orig_reg, orig_reg, resolved_address)))
+                    "add %s, %s, :lo12:.LC%x" % (target_reg, orig_reg, resolved_address)))
 
                 if inst2.mnemonic == "add":
                     inst2.mnemonic = "// " + inst2.mnemonic

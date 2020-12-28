@@ -587,7 +587,6 @@ class InstructionWrapper():
         return self.reg_reads()
 
     def reg_writes(self):
-        # Handle nop
         if self.mnemonic.startswith("nop"):
             return []
         regs = self.cs.regs_access()[1]

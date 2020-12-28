@@ -35,7 +35,7 @@ def results_to_csv(inputs, out):
                 if line[-1] != "NR":
                     benchmark = line[0].strip()
                     # if any([x in benchmark for x in ["x264", "gcc", "nab", "imagick", "lbm"]]):
-                    # if any([x in benchmark for x in ["x264", "gcc", "nab", ]]):
+                    # if any([x in benchmark for x in ["x264", "gcc" ]]):
                     if any([x in benchmark for x in ["x264" ]]):
                         continue
                     all_benchs.add(benchmark)
@@ -92,7 +92,9 @@ def plot_diff(outf):
     for x in range(1, len(df.columns.values)):
         df.iloc[numrows, x] = sum([df.iloc[i, x] for i in range(numrows)])
 
-    if "Baseline" not in df.columns:
+    base = "Cloudlab_Baseline"
+    sasan = "Cloudlab_Source_Asan"
+    if base not in df.columns:
         print("Baseline not found")
         exit(0)
 
@@ -100,8 +102,9 @@ def plot_diff(outf):
     print("Overhead on baseline")
     for i in range(len(df.iloc[:])):
         for x in range(2, len(df.columns.values)):
-            if df.columns[x] == "Baseline": continue
-            df.iloc[i, x] /= df.iloc[i]["Baseline"]
+            if df.columns[x] == base: continue
+            # df.iloc[i, x] /= df.iloc[i][base]
+            df.iloc[i, x] = "{:.2f}%".format(df.iloc[i, x] / df.iloc[i][base] * 100 - 100)
 
     print(df)
 
@@ -114,8 +117,8 @@ def plot_diff(outf):
     print("Overhead on source ASAN")
     for i in range(len(df.iloc[:])):
         for x in range(2, len(df.columns.values)):
-            if df.columns[x] == "Source_Asan": continue
-            df.iloc[i, x] /= df.iloc[i]["Source_Asan"]
+            if df.columns[x] == sasan: continue
+            df.iloc[i, x] /= df.iloc[i][sasan]
 
     print(df)
 

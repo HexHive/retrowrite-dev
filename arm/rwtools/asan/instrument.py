@@ -157,10 +157,10 @@ class Instrument():
         # ldr x0, [x1, x2, LSL#3]
         if mem_op.shift.value != 0:
             amnt = mem_op.shift.value
-            to = asan_regs[0]
+            to, sxtw = asan_regs[0], ""
             shift_reg = cs.reg_name(mem.index)
-            if is_reg_32bits(shift_reg): to = self._get_subreg32(asan_regs[0])
-            fix_lexp += [sp.LEXP_SHIFT.format(To=to, Res=asan_regs[0], From=cs.reg_name(mem.base), amnt=amnt, shift_reg=shift_reg)]
+            if is_reg_32bits(shift_reg): to,sxtw = self._get_subreg32(asan_regs[0]), ", sxtw"
+            fix_lexp += [sp.LEXP_SHIFT.format(To=to, Res=asan_regs[0], From=cs.reg_name(mem.base), amnt=amnt, shift_reg=shift_reg, sxtw=sxtw)]
         # ldr x0, [x1, x2]
         elif mem.index != 0:
             reg_index = cs.reg_name(mem.index)
@@ -275,9 +275,9 @@ class Instrument():
 
     def instrument_mem_accesses(self):
         for _, fn in self.rewriter.container.functions.items():
-            if any([s in fn.name for s in ["alloc", "signal_is_trapped", "free"]]):
-                info(f"Skipping instrumentation on function {fn.name} to avoid custom heap implementations")
-                continue
+            # if any([s in fn.name for s in ["alloc", "signal_is_trapped", "free", "gimplify"]]):
+                # info(f"Skipping instrumentation on function {fn.name} to avoid custom heap implementations")
+                # continue
             if not len(fn.cache): continue
             is_leaf = fn.analysis.get(StackFrameAnalysis.KEY_IS_LEAF, False)
 
@@ -340,11 +340,11 @@ class Instrument():
                     self.mem_instrumentation_stats[fn.start].append(idx)
                     to_instrument += [(acsz, instruction, midx, free_registers, is_leaf, bool_load)]
 
-                if len(regs) and len(to_instrument) > 1:
-                    rbase_reg = sorted(regs)[-1]
-                    first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
-                else:
-                    rbase_reg = None
+                # if len(regs) and len(to_instrument) > 1:
+                    # rbase_reg = sorted(regs)[-1]
+                    # first_instruction.instrument_before(InstrumentedInstruction(f"mov {rbase_reg}, 0x1000000000"))
+                # else:
+                    # rbase_reg = None
                 rbase_reg = None
 
                 # now we actually instrument the selected instructions
