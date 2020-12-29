@@ -16,7 +16,7 @@ set -o pipefail
 COMMIT_MSG=$(git log -1 --pretty=%B | tr '/. :' '____')
 COMMIT_SHA=$(git rev-parse --short HEAD)
 WORKDIR=${COMMIT_SHA}_${COMMIT_MSG}
-export BENCHDIR=$(find / -name "cpu2017_runner" -type d -maxdepth 4 | head -n 1)  # needed by run_test.py # this is peak research code
+export BENCHDIR=$(find / -name "cpu2017_runner" -type d -maxdepth 4 2>/dev/null | head -n 1)  # needed by run_test.py # this is peak research code
 
 
 [[ $(echo $COMMIT_MSG | grep -ic "Experiment") -eq 0 ]] && exit 0  # if "Experiment" is not in the commit message, quit
