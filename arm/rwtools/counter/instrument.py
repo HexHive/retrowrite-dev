@@ -24,11 +24,22 @@ class Instrument():
     def get_mem_instrumentation(self, instruction, idx, free):
         enter_lbl = "COUNTER_%x" % (instruction.address)
 
+        # Save register x8 (syscall number) and x0 (syscall result)
+        # instrumentation = """
+        # stp x0, x8, [sp, -16]!
+        # movz x8, 0x103
+        # svc 0
+        # ldp x0, x8, [sp], 16
+        # """
+
         instrumentation = """
-        stp x0, x8, [sp, -16]!
-        movz x8, 0x103
-        svc 0
-        ldp x0, x8, [sp], 16
+        stp x7, x8, [sp, -16]!
+        adrp x8, .counted 
+        add x8, x8, :lo12:.counted
+        ldr x7, [x8]
+        add x7, x7, 1
+        str x7, [x8]
+        ldp x7, x8, [sp], 16
         """
 
         comment = "{}: {}".format(str(instruction), str(free))
@@ -45,3 +56,35 @@ class Instrument():
                     free_registers = fn.analysis['free_registers'][idx]
                     iinstr = self.get_mem_instrumentation(instruction, idx, free_registers)
                     instruction.instrument_before(iinstr)
+
+        ds = DataSection(".counter", 0x100000, 0, None, flags="aw")
+        content = """
+        .file: .string \"/tmp/countfile\"
+        .perms: .string \"w\"
+        .format: .string \"%lld\\n\"
+        .align 3
+        .counted: .quad 0x0
+        """
+        ds.cache.append(DataCell.instrumented(content, 0))
+        self.rewriter.container.add_section(ds)
+
+
+
+        ds = DataSection(".fini", 0x200000, 0, None)
+        ds.align = 0
+        instrumentation = """
+        adrp x1, .perms
+        add x1, x1, :lo12:.perms
+        adrp x0, .file
+        add x0, x0, :lo12:.file
+        bl fopen
+
+        adrp x2, .counted
+        ldr x2, [x2, :lo12:.counted]
+        adrp x1, .format
+        add x1, x1, :lo12:.format
+        bl fprintf
+        """
+        ds.cache.append( DataCell.instrumented(instrumentation, 0))
+        self.rewriter.container.add_section(ds)
+

@@ -291,6 +291,7 @@ class DataSection():
         self.relocations = list()
         self.align = align
         self.named_globals = defaultdict(list)
+        self.flags = f", \"{flags}\"" if len(flags) else ""
 
     def load(self):
         assert not self.cache
@@ -347,7 +348,7 @@ class DataSection():
             return ""
 
         results = []
-        results.append(".section {}".format(self.name))
+        results.append(".section {} {}".format(self.name, self.flags))
 
         if self.name != ".fini_array":
             results.append(".align {}".format(self.align))

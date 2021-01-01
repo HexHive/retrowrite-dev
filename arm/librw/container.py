@@ -48,7 +48,7 @@ class Container():
         self.function_names.add(function.name)
 
     def add_section(self, section):
-        print(f"Added {section.name}")
+        debug(f"Added {section.name}")
         self.sections[section.name] = section
 
     def add_globals(self, globals):
@@ -624,7 +624,7 @@ class InstrumentedInstruction():
 
 
 class DataSection():
-    def __init__(self, name, base, sz, bytes, align=16):
+    def __init__(self, name, base, sz, bytes, align=16, flags=""):
         self.name = name
         self.cache = list()
         self.base = base
@@ -633,6 +633,7 @@ class DataSection():
         self.relocations = list()
         self.align = max(12, align)  # we want to be _at least_ page aligned
         self.named_globals = defaultdict(list)
+        self.flags = f", \"{flags}\"" if len(flags) else ""
 
     def load(self):
         assert not self.cache
@@ -698,7 +699,7 @@ class DataSection():
             return ""
 
         results = []
-        results.append(".section {}".format(self.name))
+        results.append(".section {} {}".format(self.name, self.flags))
 
         # if self.name == '.got':
             # results.append(".fake_got:")
