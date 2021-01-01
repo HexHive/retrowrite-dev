@@ -85,7 +85,8 @@ for binary_full in sys.argv[1:]:
 # TODO: modify this to write into a file 'benchmark_cmd' and use a Makefile!
 print("="*50)
 print("Finished. You can now run:")
-print(f"cd {PATH_SPECPU} && source shrc && runcpu --nobuild --iterations 1 --config strace.cfg {final_str}")
+# print(f"cd {PATH_SPECPU} && source shrc && runcpu --nobuild --iterations 1 --config strace.cfg {final_str}")
+print(f"cd {PATH_SPECPU} && source shrc && runcpu --nobuild --iterations 1 --config strace.cfg gcc_r")
 # print(f"cd {PATH_SPECPU} && source shrc && runcpu --nobuild --iterations 1 --config final.cfg {final_str}")
 # print(f"cd {PATH_SPECPU} && source shrc && runcpu --rebuild --iterations 1 --config o2.cfg {final_str}")
 # print(f"cd {PATH_SPECPU} && source shrc && runcpu --rebuild --iterations 1 --config valgrind.cfg {final_str}")

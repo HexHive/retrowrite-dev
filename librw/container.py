@@ -169,7 +169,6 @@ class Function():
         return None
 
     def __str__(self):
-        debug(self.name)
         assert self.cache, "Function not disassembled!"
 
         results = []
@@ -282,7 +281,7 @@ class InstrumentedInstruction():
 
 
 class DataSection():
-    def __init__(self, name, base, sz, bytes, align=16):
+    def __init__(self, name, base, sz, bytes, align=16, flags=""):
         self.name = name
         self.cache = list()
         self.base = base

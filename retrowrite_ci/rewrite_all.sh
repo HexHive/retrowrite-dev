@@ -13,15 +13,16 @@ for binary_full in ~/bins/*; do
 	[[ $binary =~ "ldecod" ]] && continue
 	[[ $binary =~ "x264" ]] && continue
 
-	if [[ ! $(hostname) =~ "cloudlab" ]]; then
-		[[ $binary =~ "gcc" ]] && continue # run gcc only on cloudlab
-	fi
 
 	if [[ $1 == "nothing" ]]; then
 		echo "Not touching ${binary}..."
 		cp ${binary_full} bins_rw/
 
 	elif [[ $1 == "asan" ]]; then
+		if [[ ! $(hostname) =~ "cloudlab" ]]; then
+			[[ $binary =~ "gcc" ]] && continue # run gcc only on cloudlab with asan
+		fi
+
 		echo "rewriting ${binary}.s ..."
 		./retrowrite --asan $binary_full bins_rw/prova_${binary}.s
 
