@@ -44,7 +44,7 @@ rm  $BENCHDIR/result/* || true
 
 # run retrowrite on binaries
 cp -r retrowrite_ci/* ./
-bash rewrite_all.sh symbolize      # put rewritten files in folder bins_rw
+bash rewrite_all.sh asan_trampoline      # put rewritten files in folder bins_rw
 
 # prepare spec cpu benchmark
 export ASAN_OPTIONS=detect_leaks=0  # do not print ASAN leak report
