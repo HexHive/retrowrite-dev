@@ -521,7 +521,7 @@ class Symbolizer():
 
         return False
 
-    def _adjust_adrp_section_pointer_bis(self, container, secname, orig_off, instruction):
+    def _adjust_adrp_section_pointer_litpools(self, container, secname, orig_off, instruction):
         # we adjust things like adrp x0, 0x10000 (start of .bss)
         # to stuff like  ldr x0, =(.bss - (offset))
         # to make global variables work
@@ -539,11 +539,8 @@ class Symbolizer():
         instruction.instrumented = True
 
     def _adjust_adrp_section_pointer(self, container, secname, orig_off, instruction):
+        return  self._adjust_adrp_section_pointer_litpools(container, secname, orig_off, instruction)
         assert instruction.mnemonic.startswith("adr")
-        # if secname == ".got" or secname == ".data": # .got and .data get wasted by the compiler
-            # self._adjust_adrp_section_pointer_bis(container, secname, orig_off, instruction)
-            # return
-
         Rewriter.literal_saves += 1
         base = container.sections[secname].base
         reg_name = instruction.reg_writes()[0]
