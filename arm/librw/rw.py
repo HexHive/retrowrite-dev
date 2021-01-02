@@ -539,7 +539,6 @@ class Symbolizer():
         instruction.instrumented = True
 
     def _adjust_adrp_section_pointer(self, container, secname, orig_off, instruction):
-        return  self._adjust_adrp_section_pointer_litpools(container, secname, orig_off, instruction)
         assert instruction.mnemonic.startswith("adr")
         Rewriter.literal_saves += 1
         base = container.sections[secname].base
@@ -548,7 +547,7 @@ class Symbolizer():
         op = '-' if diff > 0 else '+'
         secname = secname + "_start"
         # will get overwritten by the compiler after reassembly. We introduce a 
-        # "fake_got" label so that we keep track of where the "old" got section was
+        # "got_start" label so that we keep track of where the "old" got section was
         pages = (abs(diff) // 4096) * 4096
         instruction.instrument_before(InstrumentedInstruction(f"\tadrp {reg_name}, ({secname} {op} {pages})"))
         instruction.mnemonic = "add" if op == "+" else "sub"
