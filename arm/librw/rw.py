@@ -577,14 +577,17 @@ class Symbolizer():
                 if not isinstance(expr.left, int):
                     return 0
                 return (expr.left, inst2.cs.operands[1].mem.disp)
-            else: # str ..., [<orig_reg> + ...]
-                return path.orig_off + inst2.cs.operands[1].mem.disp
+            else:
+                if inst2.cs.operands[1].mem.disp != 0: # str ..., [<orig_reg> + ...]
+                    return path.orig_off + inst2.cs.operands[1].mem.disp
+                else: # str ..., [<orig_reg> + <unknown_reg>]
+                    return 0
         elif inst2.cs.mnemonic.startswith("stp"):
             if inst2.cs.reg_name(inst2.cs.operands[0].reg) == path.orig_reg: # stp <orig_reg>, ..., [...]
                 op_num, adding = 0, 0
             elif inst2.cs.reg_name(inst2.cs.operands[1].reg) == path.orig_reg: # stp ..., <orig_reg>, [...]
                 op_num, adding = 1, get_access_size_arm(inst2.cs)[0] // 2
-            else: # str ..., [<orig_reg> + ...]
+            else: # stp ..., [<orig_reg> + ...]
                 return path.orig_off + inst2.cs.operands[1].mem.disp
 
             mem, mem_op_idx = inst2.get_mem_access_op()
@@ -660,6 +663,13 @@ class Symbolizer():
                 new_reg = inst2.cs.reg_name(inst2.cs.operands[0].reg)
                 paths.append(path(new_reg, p.idx + 1, [], p.orig_off, copy.deepcopy(p.visited)))
 
+            # if inst.address == 0x624d9c:
+                # if inst2.address == 0x624f48:
+                    # if p.orig_reg != "None":
+                        # print(p.orig_reg)
+                        # print(inst2.reg_reads())
+                        # exit(1)
+
             if p.orig_reg in inst2.reg_reads():
                 if inst2.instrumented or '=' in inst2.op_str:  # XXX: ugly hack to avoid reinstrumenting instructions
                     del paths[0]
@@ -667,12 +677,12 @@ class Symbolizer():
                 raddr = self._get_resolved_address(p.function, inst, inst2, p)
                 if isinstance(raddr, tuple):  # a global pointer was pushed on the stack
                     addr, disp = raddr
-                    debug(f"Found new stack store at addr {hex(inst.address)} on x29 + {hex(disp)}")
+                    debug(f"Found new stack store at addr {inst2} from {inst}")
                     p.stack_stores += [disp]
                 elif isinstance(raddr, str):  # the register we're tracking has been changed
                     paths.append(path(raddr, p.idx + 1, p.stack_stores[:], p.orig_off, copy.deepcopy(p.visited), function))
                 elif raddr:                   # a global pointer was just used normally 
-                    resolved_addresses += [(inst2, raddr)]
+                    resolved_addresses += [(inst2, raddr, p.orig_reg)]
                 else:
                     critical(f"Missed global resolved address on {inst2} from {inst}")
 
@@ -749,7 +759,7 @@ class Symbolizer():
         inst.mnemonic = ""
         inst.op_str = ""
 
-        for inst2, resolved_address in resolved_addresses:
+        for inst2, resolved_address, p_orig_reg in resolved_addresses:
 
             if inst2.mnemonic not in ["add", "ldr"] and not inst2.mnemonic.startswith("str"):
                 debug(f"Warning: skipping {inst2} as not supported in global address emulation")
@@ -798,14 +808,16 @@ class Symbolizer():
             if is_an_import:
                 inst2.op_str =  reg_name2 + f", =%s" % (is_an_import)
             else:
-                target_reg = inst2.cs.reg_name(inst2.cs.operands[0].reg)
-                inst2.instrument_before(InstrumentedInstruction(
-                    "adrp %s, .LC%x" % (orig_reg, resolved_address)))
-                inst2.instrument_before(InstrumentedInstruction(
-                    "add %s, %s, :lo12:.LC%x" % (target_reg, orig_reg, resolved_address)))
-
-                if inst2.mnemonic == "add":
+                target_reg = p_orig_reg
+                if inst2.mnemonic == "add": # in case we're fixing an add, delete it and use our own
+                    target_reg = inst2.cs.reg_name(inst2.cs.operands[0].reg) # but change result reg to the same of the add
                     inst2.mnemonic = "// " + inst2.mnemonic
+
+                inst2.instrument_before(InstrumentedInstruction(
+                    "adrp %s, .LC%x" % (p_orig_reg, resolved_address)))
+                inst2.instrument_before(InstrumentedInstruction(
+                    "add %s, %s, :lo12:.LC%x" % (target_reg, p_orig_reg, resolved_address)))
+
 
 
             inst2.op_str += " // from adrp at 0x%x" % (inst.address)
