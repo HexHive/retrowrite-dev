@@ -757,8 +757,7 @@ class Symbolizer():
 
         # we don't really want an ADRP in the middle of code, if possible
         # so we erase it
-        inst.mnemonic = ""
-        inst.op_str = ""
+        inst.mnemonic = "// " + inst.mnemonic
 
         for inst2, resolved_address, p_orig_reg in resolved_addresses:
 
@@ -804,24 +803,19 @@ class Symbolizer():
 
 
 
-            # if is_reg_32bits(reg_name2):
-                # reg_name2 = get_64bits_reg(reg_name2)
             if is_an_import:
                 inst2.op_str =  reg_name2 + f", =%s" % (is_an_import)
             else:
-                target_reg = p_orig_reg
-                if inst2.mnemonic == "add": # in case we're fixing an add, delete it and use our own
-                    target_reg = inst2.cs.reg_name(inst2.cs.operands[0].reg) # but change result reg to the same of the add
-                    inst2.mnemonic = "// " + inst2.mnemonic
-
                 inst2.instrument_before(InstrumentedInstruction(
                     "adrp %s, .LC%x" % (p_orig_reg, resolved_address)))
                 inst2.instrument_before(InstrumentedInstruction(
-                    "add %s, %s, :lo12:.LC%x" % (target_reg, p_orig_reg, resolved_address)))
-                
-                if inst2.cs.operands[1].mem.disp != 0:
+                    "add %s, %s, :lo12:.LC%x" % (p_orig_reg, p_orig_reg, resolved_address)))
+
+                displace = resolved_address - p.orig_off
+
+                if displace != 0:
                     inst2.instrument_before(InstrumentedInstruction(
-                        "sub %s, %s, 0x%x" % (p_orig_reg, p_orig_reg, inst2.cs.operands[1].mem.disp)))
+                        "sub %s, %s, 0x%x" % (p_orig_reg, p_orig_reg, displace)))
 
 
 
