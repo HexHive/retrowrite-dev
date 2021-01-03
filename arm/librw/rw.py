@@ -818,6 +818,11 @@ class Symbolizer():
                     "adrp %s, .LC%x" % (p_orig_reg, resolved_address)))
                 inst2.instrument_before(InstrumentedInstruction(
                     "add %s, %s, :lo12:.LC%x" % (target_reg, p_orig_reg, resolved_address)))
+                
+                if inst2.cs.operands[1].mem.disp != 0:
+                    inst2.instrument_before(InstrumentedInstruction(
+                        "sub %s, %s, 0x%x" % (p_orig_reg, p_orig_reg, inst2.cs.operands[1].mem.disp)))
+
 
 
 
