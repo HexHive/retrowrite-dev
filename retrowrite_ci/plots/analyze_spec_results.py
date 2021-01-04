@@ -35,8 +35,8 @@ def results_to_csv(inputs, out):
                 if line[-1] != "NR":
                     benchmark = line[0].strip()
                     # if any([x in benchmark for x in ["x264", "gcc", "nab", "imagick", "lbm"]]):
-                    # if any([x in benchmark for x in ["x264", "gcc" ]]):
-                    if any([x in benchmark for x in ["x264" ]]):
+                    if any([x in benchmark for x in ["x264", "gcc" ]]):
+                    # if any([x in benchmark for x in ["x264" ]]):
                         continue
                     all_benchs.add(benchmark)
                     results[key][benchmark] = float(line[2].strip())
@@ -74,9 +74,22 @@ def plot(outf):
     df = df.set_index("benchmark")
     print(df)
 
-    ax = df.plot.bar(rot=30, figsize=(12, 7))
+    ax = df.plot.bar(rot=30, figsize=(12, 7), ylim=(1,11000))
     ax.set_ylabel("Runtime (seconds)")
     ax.set_title("SPEC CPU 2017 benchmark results\nCompile flags used: -fno-unsafe-math-optimizations -fno-tree-loop-vectorize -O3")
+
+    # ugly patching for cuttin off bars too high
+    height_limit = 8000
+    for p in ax.patches:
+        if p.get_height() < height_limit*0.8: continue
+        ax.annotate(format(p.get_height(), '.0f'),
+            (p.get_x() + p.get_width() / 2., min(height_limit, p.get_height())), 
+            ha = 'center', va = 'center', 
+            xytext = (0, 9), 
+            textcoords = 'offset points')
+    for p in ax.patches:
+        if p.get_height() > height_limit:
+            p.set_height(height_limit)
 
     plot = outf + ".pdf"
 
@@ -92,8 +105,8 @@ def plot_diff(outf):
     for x in range(1, len(df.columns.values)):
         df.iloc[numrows, x] = sum([df.iloc[i, x] for i in range(numrows)])
 
-    base = "Cloudlab_Baseline"
-    sasan = "Cloudlab_Source_Asan"
+    base = "Baseline"
+    sasan = "Source_Asan"
     if base not in df.columns:
         print("Baseline not found")
         exit(0)

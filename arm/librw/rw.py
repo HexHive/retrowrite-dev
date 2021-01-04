@@ -811,8 +811,9 @@ class Symbolizer():
                 inst2.instrument_before(InstrumentedInstruction(
                     "add %s, %s, :lo12:.LC%x" % (p_orig_reg, p_orig_reg, resolved_address)))
 
+                # this is a ugly hack, and slow, but this should get
+                # triggered _very rarely_. 
                 displace = resolved_address - p.orig_off
-
                 if displace != 0:
                     inst2.instrument_before(InstrumentedInstruction(
                         "sub %s, %s, 0x%x" % (p_orig_reg, p_orig_reg, displace)))
