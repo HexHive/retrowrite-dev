@@ -84,6 +84,7 @@ class Path:
         self.inst_idx = inst_idx
         self.expr = Expr(exprvalue)
         self.visited = visited
+        self.steps = 0
 
     def __copy__(self):
         return Path(self.function, self.inst_idx, copy.copy(self.reg_pool),

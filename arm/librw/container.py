@@ -282,7 +282,7 @@ class Function():
                         ".LC%x" % target, ".condb_%x_true" % start)
         return jumps_fixed
 
-    def fix_jmptbl_size_old(self, container):
+    def fix_jmptbl_size(self, container):
         # jump tables may not fit if there is too much instrumentation. 
         for jmptbl in self.switches:
             # jump tables can have negative values
@@ -306,11 +306,9 @@ class Function():
                 shift += 1
 
 
-            for case in set(jmptbl.cases):
+            for case in set(jmptbl.cases).union(set([jmptbl.base_case])):
                 instr_case = self.cache[self.addr_to_idx[case]]
-                info(instr_case.cs)
-                instr_case.before.insert(0, InstrumentedInstruction(f"\n.align {shift}"))
-
+                instr_case.align = shift  # mark this instruction to be aligned with .align
 
             size = jmptbl.case_size
 
@@ -333,7 +331,10 @@ class Function():
                 swlbl = "(.LC%x-.LC%x)/%d" % (jmptbl.cases[i], jmptbl.base_case, 2**shift)
                 memory_replace(container, jmptbl.jump_table_address + i*size, size, swlbl)
 
-    def fix_jmptbl_size(self, container):
+    def fix_jmptbl_size_old(self, container):
+        # this old method relied on manually inserting nops instead
+        # of using the assembler .align directive. It sucked.
+
         # jump tables may not fit if there is too much instrumentation. 
         for jmptbl in self.switches:
             # jump tables can have negative values
@@ -517,6 +518,10 @@ class Function():
                 results.append("%s" % (instruction))
                 continue
 
+            if instruction.align:
+                results.append(".align %d" % (instruction.align))
+
+
             if instruction.address in self.bbstarts:
                 results.append(".L%x:" % (instruction.address))
             results.append(".LC%x:" % (instruction.address))
@@ -552,6 +557,7 @@ class InstructionWrapper():
         self.mnemonic = instruction.mnemonic
         self.op_str = instruction.op_str
         self.sz = instruction.size
+        self.align = 0
         self.instrumented = False
 
         # Instrumentation cache for this instruction

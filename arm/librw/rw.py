@@ -293,7 +293,7 @@ class Symbolizer():
                     function.prevs[nexti] = function.prevs.get(nexti, [])
                     function.prevs[nexti].append(idx)
 
-    def resolve_register_value(self, register, function, instr):
+    def resolve_register_value(self, register, function, instr, max_steps=1e6):
         debug(f"Instructions leading up to {hex(instr.address)}")
         inst_idx = function.addr_to_idx[instr.address]
         reg_name = instr.cs.reg_name(register)
@@ -302,10 +302,11 @@ class Symbolizer():
         paths_finished = []
         while len(paths) > 0:
             p = paths[0]
+            p.steps += 1
             prevs = function.prevs[p.inst_idx]
 
             # XXX: fix the ugly 'x' in p.expr hack
-            if p.inst_idx == 0 or p.visited[p.inst_idx] or \
+            if p.inst_idx == 0 or p.visited[p.inst_idx] or p.steps > max_steps or \
             len(prevs) == 0 or (len(p.reg_pool) == 0 and 'x' not in str(p.expr)):  # we got to the start of the function 
                 paths_finished += [paths[0]]
                 debug("finished path")
@@ -360,7 +361,7 @@ class Symbolizer():
             if p.inst_idx == 0 or len(prevs) == 0 or p.steps > max_instrs_before_switch:
                 paths_finished += [paths.pop(0)]
                 continue
-            print(f"taking path at {hex(function.cache[p.inst_idx].address)}, total paths {len(paths)}")
+            debug(f"taking path at {hex(function.cache[p.inst_idx].address)}, total paths {len(paths)}")
 
             for i in prevs:
                 debug(f"MULTIPLE prevs: {[hex(function.cache[i].address) for i in prevs]}")
@@ -390,7 +391,7 @@ class Symbolizer():
                             break
                     # if next_instr and next_instr.mnemonic in ["b.lt"]: p.found -= 1
                     paths_finished += [paths.pop(0)]
-                    print("found path", len(paths))
+                    debug("found path", len(paths))
                     continue
             if instr.mnemonic == "movz" and instr.cs.operands[0].reg == p.reg_index:
                 # if the register is written with a constant value, we just ignore this path
@@ -421,74 +422,80 @@ class Symbolizer():
             assert False
         for _, function in container.functions.items():
             for jump in function.possible_switches:
-                inst_idx = function.addr_to_idx[jump]
-                instr = function.cache[inst_idx]
-                reg = instr.cs.operands[0].reg
-                debug(f"Analyzing switch on {instr.cs}, {instr.cs.reg_name(reg)}")
-                expr = self.resolve_register_value(reg, function, instr)
+                # we do two tries, changing the number of instructions to analyze before the switch
+                # if 20 are enough, then good, otherwise we perform a much deeper analysis. 
+                # this is because _very rarely_ too much analysis can break, so we prefer to keep it low if possible
+                for tries in [20, 1000]:
+                    inst_idx = function.addr_to_idx[jump]
+                    instr = function.cache[inst_idx]
+                    reg = instr.cs.operands[0].reg
+                    debug(f"Analyzing switch on {instr.cs}, {instr.cs.reg_name(reg)}")
+                    expr = self.resolve_register_value(reg, function, instr, max_steps=tries)
+                    # print(instr.cs, expr)
 
-                # Super advanced pattern matching
-                # import IPython; IPython.embed() 
+                    # Super advanced pattern matching
 
-                # addr
-                if isinstance(expr.left, int):
-                    debug(f"Found a blr at {instr.cs} but it is really a call to {hex(expr.left)}! - ignoring for now")
-                    continue
-
-                # x0
-                if isinstance(expr.left, str):
-                    continue
-
-                # [addr]
-                elif expr.left.mem and expr.left.right == None: 
-                    # addr = int(str(expr.left.left))
-                    # value = self._memory_read(container, addr, 8)
-                    # swlbl = ".LC%x" % (value,)
-                    # memory_replace(container, addr, 8, swlbl)
-                    continue
-
-                # addr + ... (no register present in expression)
-                # if all([c not in str(expr) for c in ['x', 'w']]): 
-                    # continue
-
-                # first_case_addr + [ jmptbl_addr + ??? ]
-                elif isinstance(expr.left.right, Expr) and expr.left.right.left \
-                    and isinstance(expr.left.right.left, Expr) and expr.left.right.left.mem\
-                    and isinstance(expr.left.right.left.left, int):
-                    try: #XXX remove this try catch and uncomment (and fix) above expression about not having registers
-                         # probably you need to implement multiple path traversal in the switch detection
-                        base_case = expr.left.left
-                        debug(f"BASE CASE: {base_case}")
-                        size = expr.left.right.left.mem
-                        jmptbl_addr = int(str(expr.left.right.left.left))
-                        shift = expr.left.right.right
-                        debug(f"SHIFT: {shift}")
-                        debug(f"JMPTBL: {jmptbl_addr}")
-                        debug(f"SIZE: {size}")
-
-                        cases = self._guess_cases_number(container, function, instr.address)
-                        debug(f"CASES: {cases}")
-                        if cases == -1:
-                            assert False
-
-                        cases_list = []
-
-                        for i in range(cases):
-                            value = self._memory_read(container, jmptbl_addr + i*size, size, signed=True)
-                            debug("VALUE:" + str(value))
-                            addr = base_case + value*(2**shift)
-                            swlbl = "(.LC%x-.LC%x)/%d" % (addr, base_case, 2**shift)
-                            memory_replace(container, jmptbl_addr + i*size, size, swlbl)
-                            cases_list += [addr]
-
-                        function.add_switch(Jumptable(instr.address, jmptbl_addr, size, base_case, cases_list))
-                    except:
+                    # addr
+                    if isinstance(expr.left, int):
+                        debug(f"Found a blr at {instr.cs} but it is really a call to {hex(expr.left)}! - ignoring for now")
                         continue
 
-                else:
-                    critical(f"JUMP TABLE at {hex(instr.address)} impossible to recognize!")
-                    critical(f"Potential crashes in function {function.name}")
-                    critical(f"final expression: {expr}")
+                    # x0
+                    if isinstance(expr.left, str):
+                        continue
+
+                    # [addr]
+                    elif expr.left.mem and expr.left.right == None: 
+                        # addr = int(str(expr.left.left))
+                        # value = self._memory_read(container, addr, 8)
+                        # swlbl = ".LC%x" % (value,)
+                        # memory_replace(container, addr, 8, swlbl)
+                        continue
+
+                    # addr + ... (no register present in expression)
+                    # if all([c not in str(expr) for c in ['x', 'w']]): 
+                        # continue
+
+                    # first_case_addr + [ jmptbl_addr + ??? ]
+                    elif isinstance(expr.left.right, Expr) and expr.left.right.left \
+                        and isinstance(expr.left.right.left, Expr) and expr.left.right.left.mem\
+                        and isinstance(expr.left.right.left.left, int):
+                        try: #XXX remove this try catch and uncomment (and fix) above expression about not having registers
+                             # probably you need to implement multiple path traversal in the switch detection
+                            base_case = expr.left.left
+                            debug(f"BASE CASE: {base_case}")
+                            size = expr.left.right.left.mem
+                            jmptbl_addr = int(str(expr.left.right.left.left))
+                            shift = expr.left.right.right
+                            debug(f"SHIFT: {shift}")
+                            debug(f"JMPTBL: {jmptbl_addr}")
+                            debug(f"SIZE: {size}")
+
+                            cases = self._guess_cases_number(container, function, instr.address)
+                            debug(f"CASES: {cases}")
+                            if cases == -1:
+                                assert False
+
+                            cases_list = []
+
+                            for i in range(cases):
+                                value = self._memory_read(container, jmptbl_addr + i*size, size, signed=True)
+                                debug("VALUE:" + str(value))
+                                addr = base_case + value*(2**shift)
+                                swlbl = "(.LC%x-.LC%x)/%d" % (addr, base_case, 2**shift)
+                                memory_replace(container, jmptbl_addr + i*size, size, swlbl)
+                                cases_list += [addr]
+
+                            function.add_switch(Jumptable(instr.address, jmptbl_addr, size, base_case, cases_list))
+                            break
+                        except:
+                            critical(f"JUMP TABLE at {hex(instr.address)} recognized but failed to symbolize!")
+                            continue
+
+                    else:
+                        info(f"JUMP TABLE at {hex(instr.address)} impossible to recognize!")
+                        info(f"Potential crashes in function {function.name}")
+                        info(f"final expression: {expr}")
 
 
 
@@ -539,7 +546,6 @@ class Symbolizer():
         instruction.instrumented = True
 
     def _adjust_adrp_section_pointer(self, container, secname, orig_off, instruction):
-        return  self._adjust_adrp_section_pointer_litpools(container, secname, orig_off, instruction)
         assert instruction.mnemonic.startswith("adr")
         Rewriter.literal_saves += 1
         base = container.sections[secname].base
