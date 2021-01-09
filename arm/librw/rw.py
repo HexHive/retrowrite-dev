@@ -220,10 +220,6 @@ class Symbolizer():
                         function.nexts[inst_idx].append(inst_idx + 1)
                     continue
 
-                # if any([instruction.mnemonic.startswith(op) for op in ["usubl", "tbl"]]): 
-                    # import IPython; IPython.embed()
-                    # continue # somehow capstone thinks this is a jump
-
                 instruction.cf_leaves_fn = False
 
                 if is_jmp and _is_jump_conditional(instruction.mnemonic):
