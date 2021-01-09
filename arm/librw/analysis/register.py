@@ -8,7 +8,10 @@ from collections import defaultdict
 
 from archinfo import ArchAArch64, Register
 from arm.librw.util.logging import *
+from arm.librw.analysis.stackframe import StackFrameAnalysis
 
+
+leaf_functions = {}
 
 class RegisterAnalysis(object):
     KEY = 'free_registers'
@@ -23,6 +26,7 @@ class RegisterAnalysis(object):
 
         self._init_subregisters()
         self.closure_list = self._init_closure_list()
+
 
         # XXX: ARM
         # Caller saved register list, These are registers that cannot be
@@ -117,6 +121,7 @@ class RegisterAnalysis(object):
 
     @staticmethod
     def analyze(container):
+        global leaf_functions # XXX ugly global, fix it
         class DecimalEncoder(json.JSONEncoder):
             def default(self, o):
                 if isinstance(o, set):
@@ -125,14 +130,18 @@ class RegisterAnalysis(object):
                     return super(DecimalEncoder, self).default(o)
         info("Starting free registers analysis...")
 
-        c2 = {}
-        for addr, function in container.functions.items():
-            if any([s in function.name for s in ["perl", "Perl"]]):
-                pass
-            else:
-                c2[addr] = function
+        # c2 = {}
+        # for addr, function in container.functions.items():
+            # if any([s in function.name for s in ["perl", "Perl"]]):  #XXX: remove this
+                # pass
+            # else:
+                # c2[addr] = function
 
-        print(len(c2))
+        # print(len(c2))
+
+        for addr, function in container.functions.items():
+            if function.analysis.get(StackFrameAnalysis.KEY_IS_LEAF, False):
+                leaf_functions[addr] = True
 
         for addr, function in container.functions.items():
             ra = RegisterAnalysis()
@@ -143,13 +152,17 @@ class RegisterAnalysis(object):
             # if addr == sorted(c2.keys())[166]:
             # if "Perl_foldEQ_latin1" == function.name or \
             # if "S_regmatch" == function.name:
-            if not ".part." in function.name and not "invlist_iternext" in function.name:
+            if not ".part." in function.name and not "invlist_iternext" in function.name and \
+                    not "et_" in function.name and\
+                    not "df_reg" in function.name and \
+                    not "vectorizable_type_promotion" in function.name:
                 # if "yylex" in function.name: 
+                # if "ira_build" in function.name:
                 debug("Analyzing function " + function.name)
-                ra.analyze_function(function)
+                ra.analyze_function(container, function)
             function.analysis[RegisterAnalysis.KEY] = ra.free_regs
 
-    def analyze_function(self, function):
+    def analyze_function(self, container, function):
         # we will do a reverse-topological order visit to understand
         # which registers are free in a single pass
         changed = True
@@ -172,7 +185,7 @@ class RegisterAnalysis(object):
 
 
                 visited[idx] = True
-                changed = self.analyze_instruction(function, idx) or changed
+                changed = self.analyze_instruction(container, function, idx) or changed
 
                 nexts = list(filter(lambda x: isinstance(x, int), function.nexts[idx]))
                 # for n in nexts:
@@ -202,7 +215,7 @@ class RegisterAnalysis(object):
             # iter += 1
 
 
-    def analyze_instruction(self, function, instruction_idx):
+    def analyze_instruction(self, container, function, instruction_idx):
         current_instruction = function.cache[instruction_idx]
         nexts = function.nexts[instruction_idx]
 
@@ -212,6 +225,22 @@ class RegisterAnalysis(object):
         reguses = self.compute_reg_set_closure(reguses)
 
         regwrites = ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_writes_common()]
+
+
+        # if there is a call to a leaf function, do not
+        # assume you can use registers, as sometime they do not respect the ABI
+        if current_instruction.mnemonic == "bl":
+            target = current_instruction.cs.operands[-1].imm
+            if target in leaf_functions:
+                regwrites = []
+        # if it's not a call but a jump that leaves the function,
+        # we assume it's a trampoline and go to the next instruction.
+        else if current_instruction.cf_leaves_fn: 
+            nexts += instruction_idx + 1
+
+
+
+
         regwrites = self.compute_reg_set_closure(regwrites)
         regwrites = set(regwrites).difference(reguses)
 
@@ -224,8 +253,11 @@ class RegisterAnalysis(object):
 
         for nexti in nexts:
             if nexti not in self.used_regs: continue
+            # print("next   ", function.cache[nexti].cs, self.used_regs[nexti])
             reguses = reguses.union(
                 self.used_regs[nexti].difference(regwrites))
+
+        # print(current_instruction.cs, reguses, regwrites)
 
         # if all([nexti in self.used_regs for nexti in nexts]):
             # for nexti in nexts:

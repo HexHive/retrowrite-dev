@@ -590,6 +590,8 @@ class InstructionWrapper():
             return non_clobbered_registers # jumptable, we don't know, assume every reg is used
         if self.mnemonic.startswith("bl"):
             return argument_registers      # assume the called function reads arguments
+        if self.mnemonic.startswith("ret"):
+            return argument_registers      # values can be returned in the first 8 regiters
         return self.reg_reads()
 
     def reg_writes(self):

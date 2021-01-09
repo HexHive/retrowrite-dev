@@ -111,6 +111,13 @@ class Instrument():
             list(free),
             key=lambda x: affinity.index(x) if x in affinity else len(affinity))
 
+        # *very rarely* a leaf function does not respect the ABI,
+        # and we cannot assume we have free registers. As an example, look at the
+        # call to et_splay in et_set_father in the gcc_r speccpu benchmark
+        # This could be optimized by only restricting to regiters present in the leaf function
+        if is_leaf:
+            free_regs = []
+
         # do not use registers used for batching
         if rbase_reg and rbase_reg in free_regs:
             print(affinity)
@@ -197,6 +204,8 @@ class Instrument():
             # if save_rflags:
                 # save_rflags = "opt"
                 # save_rax = "rax" not in free
+
+        #XXX: should remove this, we dont use red zones on the stack yet
         if is_leaf:
             save.insert(0, sp.LEAF_STACK_ADJUST)
             restore.append(sp.LEAF_STACK_UNADJUST)

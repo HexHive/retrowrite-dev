@@ -425,6 +425,7 @@ class Symbolizer():
                 # we do two tries, changing the number of instructions to analyze before the switch
                 # if 20 are enough, then good, otherwise we perform a much deeper analysis. 
                 # this is because _very rarely_ too much analysis can break, so we prefer to keep it low if possible
+                # an example is the br at 0x77e970 in the gcc_r spec cpu2017 benchmark, it breaks if tries > 50
                 for tries in [20, 1000]:
                     inst_idx = function.addr_to_idx[jump]
                     instr = function.cache[inst_idx]
