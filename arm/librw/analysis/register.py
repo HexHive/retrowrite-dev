@@ -336,5 +336,5 @@ class RegisterAnalysis(object):
             #XXX
             #XXX
             #XXX
-            # self.free_regs[idx] = []
-            self.free_regs[idx] = self.reg_pool.difference(ent)
+            self.free_regs[idx] = []
+            # self.free_regs[idx] = self.reg_pool.difference(ent)
