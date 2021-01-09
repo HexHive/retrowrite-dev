@@ -235,7 +235,7 @@ class RegisterAnalysis(object):
                 regwrites = []
         # if it's not a call but a jump that leaves the function,
         # we assume it's a trampoline and go to the next instruction.
-        else if current_instruction.cf_leaves_fn: 
+        elif current_instruction.cf_leaves_fn: 
             nexts += instruction_idx + 1
 
 
