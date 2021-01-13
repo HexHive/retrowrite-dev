@@ -107,6 +107,7 @@ def plot_diff(outf):
 
     base = "Baseline"
     sasan = "Source_Asan"
+    basan = "Basan"
     if base not in df.columns:
         print("Baseline not found")
         exit(0)
@@ -134,6 +135,22 @@ def plot_diff(outf):
             df.iloc[i, x] /= df.iloc[i][sasan]
 
     print(df)
+
+    # delete from down here
+
+    # df = pandas.read_csv(csvf)
+    # numrows = len(df.index)
+    # df.loc[numrows, "benchmark"] = "Average"
+    # for x in range(1, len(df.columns.values)):
+        # df.iloc[numrows, x] = sum([df.iloc[i, x] for i in range(numrows)])
+
+    # print("Overhead on binary ASAN")
+    # for i in range(len(df.iloc[:])):
+        # for x in range(2, len(df.columns.values)):
+            # if df.columns[x] == basan: continue
+            # df.iloc[i, x] /= df.iloc[i][basan]
+
+    # print(df)
 
 
 

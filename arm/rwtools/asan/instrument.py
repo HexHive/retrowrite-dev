@@ -150,6 +150,7 @@ class Instrument():
             push_cnt += len(to_save_regs)
 
         save_condition_reg = True
+        # if acsz < 8:
         if save_condition_reg: # XXX: should check whether we actually need this or not
             save.append("\tmrs {0}, nzcv".format(asan_regs[4]))
             restore.insert(0, "\tmsr nzcv, {0}".format(asan_regs[4]))
