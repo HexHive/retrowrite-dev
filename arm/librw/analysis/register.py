@@ -145,19 +145,14 @@ class RegisterAnalysis(object):
 
         for addr, function in container.functions.items():
             ra = RegisterAnalysis()
-            # if any([s in function.name for s in ["Perl_utilize", "perl_parse", "Perl_newATTRSUB_x", "S_process_special_blocks.isra.11", "Perl_call_list", "Perl_croak", "Perl_die_unwind"]]):
-            # if addr in sorted(c2.keys())[180:360]: # there is a crash here?
-            # if addr == sorted(c2.keys())[166]:
-            # if "foldEQ" in function.name:
-            # if addr == sorted(c2.keys())[166]:
-            # if "Perl_foldEQ_latin1" == function.name or \
-            # if "S_regmatch" == function.name:
+            # ".part." -> gcc breaks ABI by not saving caller registers
+            # "et_.*", "invlist_iternext" -> I don't remember, honestly
+            # "df_reg.*" -> gcc breaks ABI by not saving caller registers
+            # "vectorizable_type_promotion" -> this function contained a trampoline
             if not ".part." in function.name and not "invlist_iternext" in function.name and \
                     not "et_" in function.name and\
                     not "df_reg" in function.name and \
-                    not "vectorizable_type_promotion" in function.name:
-                # if "yylex" in function.name: 
-                # if "ira_build" in function.name:
+                    not "vectorizable_type_promotion" in function.name: 
                 debug("Analyzing function " + function.name)
                 ra.analyze_function(container, function)
             function.analysis[RegisterAnalysis.KEY] = ra.free_regs
