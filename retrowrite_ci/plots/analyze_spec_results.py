@@ -35,8 +35,8 @@ def results_to_csv(inputs, out):
                 if line[-1] != "NR":
                     benchmark = line[0].strip()
                     # if any([x in benchmark for x in ["x264", "gcc", "nab", "imagick", "lbm"]]):
-                    # if any([x in benchmark for x in ["x264", "gcc" ]]):
-                    if any([x in benchmark for x in ["x264" ]]):
+                    if any([x in benchmark for x in ["x264", "gcc" ]]):
+                    # if any([x in benchmark for x in ["x264" ]]):
                         continue
                     all_benchs.add(benchmark)
                     results[key][benchmark] = float(line[2].strip())
@@ -74,12 +74,13 @@ def plot(outf):
     df = df.set_index("benchmark")
     print(df)
 
-    ax = df.plot.bar(rot=30, figsize=(12, 7), ylim=(1,11000))
+    # ugly patching for cuttin off bars too high
+    height_limit = 60000
+
+    ax = df.plot.bar(rot=30, figsize=(12, 7), ylim=(1,height_limit*1.1))
     ax.set_ylabel("Runtime (seconds)")
     ax.set_title("SPEC CPU 2017 benchmark results\nCompile flags used: -fno-unsafe-math-optimizations -fno-tree-loop-vectorize -O3")
 
-    # ugly patching for cuttin off bars too high
-    height_limit = 8000
     for p in ax.patches:
         if p.get_height() < height_limit*0.8: continue
         ax.annotate(format(p.get_height(), '.0f'),

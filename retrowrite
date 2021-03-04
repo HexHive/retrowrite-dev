@@ -93,8 +93,8 @@ if __name__ == "__main__":
                       help="Use specified instrumentation module in rwtools directory")
 
 
-    argp.add_argument("-s", "--assembly", action="store_true",
-                      help="Generate Symbolized Assembly")
+    # argp.add_argument("-s", "--assembly", action="store_true",
+                      # help="Generate Symbolized Assembly")
     # python3 -m librw.rw </path/to/binary> <path/to/output/asm/files>
     argp.add_argument("-k", "--kernel", action='store_true',
                       help="Instrument a kernel module")
