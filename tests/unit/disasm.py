@@ -1,6 +1,6 @@
 
 import unittest
-from . import disasm
+from librw import disasm
 
 
 """

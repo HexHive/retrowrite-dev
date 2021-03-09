@@ -1,6 +1,3 @@
 #!/bin/sh
 
-PKG_NAME=librw
-
-
-nosetests $PKG_NAME
+nosetests -w tests/unit --all-modules
