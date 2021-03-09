@@ -21,10 +21,9 @@ setup(
     author='...',
     author_email='',
     url='https://hexhive.epfl.ch',
-    # as is, the python package will be imported via `import librw`.
-    # if we want it to be called retrowrite, it needs to be in such 
-    # a folder.
-    packages=get_packages('librw'),
+    packages=["retrowrite"],
+    # set librw here to the directory containing the root of the source code.
+    package_dir={"retrowrite": "librw"},
     entry_points = {
         'console_scripts': [
         ]
