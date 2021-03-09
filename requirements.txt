@@ -1,4 +1,4 @@
-archinfo
-pyelftools
-capstone
-intervaltree
+archinfo>=9.0
+pyelftools>=0.27
+capstone>=4.0.2
+intervaltree>=3.1.0
