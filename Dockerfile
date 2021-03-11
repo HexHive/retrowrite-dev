@@ -21,7 +21,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Create a symbolic link to have access to the retrowrite command
-RUN ln -s /retrowrite/retrowrite/retrowrite /bin/retrowrite
+RUN ln -s /home/retrowrite/retrowrite/retrowrite /bin/retrowrite
 
 # Use the retrowrite user
 USER retrowrite
