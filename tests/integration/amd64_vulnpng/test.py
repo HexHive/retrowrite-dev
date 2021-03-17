@@ -12,6 +12,21 @@ from librw.analysis.stackframe import StackFrameAnalysis
 
 CC="clang"
 
+"""
+pkgdir finds code relative to this file, for example in the src folder 
+in this directory. It will find absolute paths and join your provided 
+relath as required. 
+If relpath is not supplied, it simply returns the path to the current 
+directory
+"""
+def pkgdir(relpath=None):
+
+    filedir = os.path.dirname(os.path.abspath(__file__))
+    if relpath == None:
+        return filedir
+
+    return os.path.join(filedir, relpath)
+
 def retrowrite(input_file, output_file):
     loader = Loader(input_file)
 
@@ -36,9 +51,9 @@ def retrowrite(input_file, output_file):
 
 
 def setup_func():
-    print(os.getcwd())
-    source_dir = os.path.join(os.getcwd(), "src")
-    work_dir = os.path.join(os.getcwd(), "work")
+
+    source_dir = pkgdir("src") 
+    work_dir = pkgdir("work")
     try:
         os.mkdir(work_dir)
     except FileExistsError:
@@ -51,14 +66,14 @@ def setup_func():
 
 def teardown_func():
     "tear down test fixtures"
-    source_dir = os.path.join(os.getcwd(), "src")
-    work_dir = os.path.join(os.getcwd(), "work")
+    source_dir = pkgdir("src")
+    work_dir = pkgdir("work")
     subprocess.call(["make", "clean"], cwd=source_dir)
     shutil.rmtree(work_dir, ignore_errors=True)
 
 @with_setup(setup_func, teardown_func)
 def test_rewrite():
-    work_dir = os.path.join(os.getcwd(), "work")
+    work_dir = pkgdir("work")
 
     def work_file(filename):
         return os.path.join(work_dir, filename)

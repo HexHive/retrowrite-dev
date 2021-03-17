@@ -1,3 +1,5 @@
 #!/bin/sh
 
-nosetests -w tests/unit --all-modules
+pushd tests/unit
+nosetests -v --all-modules
+popd
