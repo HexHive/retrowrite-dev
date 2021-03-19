@@ -17,13 +17,9 @@ In case you want to use both please follow the instructions for KRetrowrite.
 
 ## General setup
 
-Retrowrite is implemented in python3 (3.6). Make sure python3 and python3-venv
-is installed on system. Retrowrite depends on
-[capstone](https://github.com/aquynh/capstone). The version
-available from the Ubuntu 18.04 repositories 
-is not compatible with this version. The setup
-script pulls the latest version of capstone from the repository and builds it.
-Make sure that your system meets the requirements to build capstone.
+Retrowrite is implemented in python3 (3.6). We provide a Dockerfile for easy
+development, so make sure the [docker engine](https://docs.docker.com/engine/install/)
+is installed on your system.
 
 #### Requirements for target binary
 
@@ -42,7 +38,7 @@ options, and may be accessed with `-h`.
 To start with use retrowrite command:
 
 ```bash
-(retro) $ retrowrite --help
+$ retrowrite --help
 usage: retrowrite [-h] [-a] [-s] [-k] [--kcov] [-c] [--ignore-no-pie] [--ignore-stripped] bin outfile
 
 Retrofitting compiler passes though binary rewriting.
@@ -64,7 +60,7 @@ optional arguments:
 
 In case you load a non position independent code you will get the following message:
 ```
-(retro) $ retrowrite stack stack.c 
+$ retrowrite stack stack.c 
 ***** RetroWrite requires a position-independent executable. *****
 It looks like stack is not position independent
 If you really want to continue, because you think retrowrite has made a mistake, pass --ignore-no-pie.
@@ -85,17 +81,9 @@ Retrowrite ships with an utility with the following features:
 
 ### Setup
 
-Run `setup.sh`:
-
-* `./setup.sh user`
-
-Activate the virtualenv (from root of the repository):
-
-* `source retro/bin/activate`
-
-(Bonus) To exit virtualenv when you're done with retrowrite:
-* `deactivate`
-
+Run `make shell` to open a shell inside of the docker container where you will
+have access to `retrowrite`, or run `make demo` to run
+[our demos](./demos/user_demo).
 
 ### Usage
 
