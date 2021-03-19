@@ -22,13 +22,31 @@ class Loader():
         self.elffile = ELFFile(self.fd)
         self.container = Container()
 
-    # this function is checking is the binarie is suited for retrowrite rewriting (PIE/PIC)
     def is_pie(self):
+        """is_pie checks if the ELF file is a position-intependent executable.
+
+        It does this by checking that the elffile has e_type as ET_DYN, a 
+        dynamic object, and base address 0. See similar techniques in checksec.sh.
+
+        Parameters: None
+
+        Returns:
+        bool: True if pie, False otherwise.
+        """
         base_address = next(seg for seg in self.elffile.iter_segments() 
                                         if seg['p_type'] == "PT_LOAD")['p_vaddr']
         return self.elffile['e_type'] == 'ET_DYN' and base_address == 0
 
     def is_machinetype_ok(self):
+        """is_machinetype_ok reads the machine type from the ELF header and 
+        checks it against a list of supported machine types.
+
+        Parameters: None
+
+        Returns:
+        bool: True if supported, False otherwise"
+        """
+
         machinetype = self.elffile.header.e_machine
         return (machinetype in self.valid_machinetypes)
 
@@ -45,8 +63,16 @@ class Loader():
             return True
         return False
 
-
     def can_load(self):
+        """can_load checks if the ELF file meets the criteria to be processed 
+        by Retrowrite.
+
+        Parameters: None
+
+        Returns:
+        bool: True if the ELF file is supported, False otherwise.
+        """
+
         if self.is_machinetype_ok() == False:
             return False
         if self.is_pie() == False:
