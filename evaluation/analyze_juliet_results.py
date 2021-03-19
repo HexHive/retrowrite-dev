@@ -6,9 +6,6 @@ import itertools
 
 import pandas
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
-import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -106,9 +103,6 @@ def deep_analyze(results_dir, out):
 
             x = tag0 + keyxs[key]
             y = tag1 + keyys[key]
-
-            #x = 0.20 * np.random.random() + (tag0)
-            #y = 0.20 * np.random.random() + (tag1)
 
             points[key][0].append(x)
             points[key][1].append(y)
