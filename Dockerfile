@@ -3,7 +3,7 @@ FROM python:3.9.2-slim
 # Install security updates, make, gcc and clang
 RUN apt-get update && \
     apt-get -y upgrade && \
-    DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc clang && \
+    DEBIAN_FRONTEND=noninteractive apt-get -y install make gcc clang zlib1g-dev pkg-config && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
