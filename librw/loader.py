@@ -12,15 +12,25 @@ from .disasm import disasm_bytes
 
 
 class Loader():
+
+    # List valid architectures for which we can retrowrite here.
+    # the loader will refuse to load any machinetypes that are invalid.
+    valid_machinetypes = ['EM_X86_64', 'EM_AARCH64']
+
     def __init__(self, fname):
         self.fd = open(fname, 'rb')
         self.elffile = ELFFile(self.fd)
         self.container = Container()
+
     # this function is checking is the binarie is suited for retrowrite rewriting (PIE/PIC)
     def is_pie(self):
         base_address = next(seg for seg in self.elffile.iter_segments() 
                                         if seg['p_type'] == "PT_LOAD")['p_vaddr']
         return self.elffile['e_type'] == 'ET_DYN' and base_address == 0
+
+    def is_machinetype_ok(self):
+        machinetype = self.elffile.header.e_machine
+        return (machinetype in self.valid_machinetypes)
 
     def is_stripped(self):
         # Get the symbol table entry for the respective symbol
@@ -35,10 +45,15 @@ class Loader():
             return True
         return False
 
-    def is_pie(self):
-        base_address = next(seg for seg in self.elffile.iter_segments() 
-                                        if seg['p_type'] == "PT_LOAD")['p_vaddr']
-        return self.elffile['e_type'] == 'ET_DYN' and base_address == 0
+
+    def can_load(self):
+        if self.is_machinetype_ok() == False:
+            return False
+        if self.is_pie() == False:
+            return False
+        if self.is_stripped() == True:
+            return False 
+        return True
 
     def load_functions(self, fnlist):
         section = self.elffile.get_section_by_name(".text")

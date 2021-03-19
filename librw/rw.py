@@ -45,6 +45,9 @@ class Rewriter():
         self.container = container
         self.outfile = outfile
 
+
+
+
         for sec, section in self.container.sections.items():
             section.load()
 
@@ -316,12 +319,11 @@ class Symbolizer():
                             is_an_import = relocation['name']
                             sfx = "@GOTPCREL"
                             break
-
                     if is_an_import:
                         inst.op_str = inst.op_str.replace(
                             hex(value), "%s%s" % (is_an_import, sfx))
                     else:
-                        # Check if target is contained within a known region
+                       # Check if target is contained within a known region
                         in_region = self._is_target_in_region(
                             container, target)
                         if in_region:
@@ -405,10 +407,13 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if loader.is_stripped() == True and args.ignore_stripped == False:
-        print("RetroWrite requires a none stripped executable.")
+        print("RetroWrite requires a non-stripped executable.")
         print("It looks like %s is stripped" % args.bin)
         sys.exit(1)
 
+    if loader.is_machinetype_ok() == True:
+        print("RetroWrite does not support the architecture in this ELF file")
+        sys.exit(1)
 
     flist = loader.flist_from_symtab()
     loader.load_functions(flist)

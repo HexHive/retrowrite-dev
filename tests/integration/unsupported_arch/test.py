@@ -30,6 +30,9 @@ def pkgdir(relpath=None):
 def retrowrite(input_file, output_file):
     loader = Loader(input_file)
 
+    if not loader.can_load():
+        return None
+
     flist = loader.flist_from_symtab()
     loader.load_functions(flist)
 
@@ -75,13 +78,10 @@ def test_rewrite():
 
     def work_file(filename):
         return os.path.join(work_dir, filename)
-    
-    
     rwa = retrowrite(work_file("hellostatic.arm32hf"), work_file("hellostatic_arm32hf.s"))
     rwb = retrowrite(work_file("hellostatic.rv64gc"), work_file("hellostatic_rv64gc.s"))
     rwc = retrowrite(work_file("hellostatic.ppc64le"), work_file("hellostatic_ppc64le.s"))
-    rwa.dump()
-    rwb.dump()
-    rwc.dump()
 
-    
+    assert(rwa == None)
+    assert(rwb == None)
+    assert(rwc == None)
