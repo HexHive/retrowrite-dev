@@ -1,5 +1,3 @@
-#!/bin/sh
+#!/bin/bash
 
-pushd tests/integration
 nosetests -v
-popd
