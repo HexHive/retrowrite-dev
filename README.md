@@ -69,6 +69,7 @@ In the case you think retrowrite is mistaking you can use the argument `--ignore
 
 
 ## Retrowrite
+
 ### Quick Usage Guide
 
 This section highlights the steps to get you up to speed to use userspace retrowrite for rewriting PIC binaries.
@@ -88,9 +89,6 @@ have access to `retrowrite`, or run `make demo` to run
 ### Usage
 
 #### Commands
-
-
-
 
 ##### a. Instrument Binary with Binary-Address Sanitizer (BASan)
 
@@ -149,24 +147,15 @@ fuzzing and reproducing results.
 
 
 # KRetrowrite
+
 ### Quick Usage Guide
+
 ### Setup
 
-Run `setup.sh`:
-
-* `./setup.sh kernel`
-
-
-Activate the virtualenv (from root of the repository):
-
-* `source retro/bin/activate`
-
-(Bonus) To exit virtualenv when you're done with retrowrite:
-* `deactivate`
-
+Run `make shell` to open a shell inside of the docker container where you will
+have access to `retrowrite`.
 
 ### Usage
-
 
 #### Commands
 
