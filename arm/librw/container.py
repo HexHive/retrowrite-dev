@@ -728,17 +728,18 @@ class DataSection():
                 ".rodata":".rodota",
         }
 
-        newsecname = ""
-        if self.name in newsecs:
-            progbits = "@progbits" if self.name != ".bss" else "@nobits"
-            secperms = perms[self.name] if self.name in perms else "aw"
-            newsecname = f"{newsecs[self.name]}, \"{secperms}\", {progbits}"
-        else:
-            newsecname = f"{self.name} {self.flags}"
+        # newsecname = ""
+        # if self.name in newsecs:
+            # progbits = "@progbits" if self.name != ".bss" else "@nobits"
+            # secperms = perms[self.name] if self.name in perms else "aw"
+            # newsecname = f"{newsecs[self.name]}, \"{secperms}\", {progbits}"
+        # else:
+            # newsecname = f"{self.name} {self.flags}"
 
 
         results = []
-        results.append(".section {}".format(newsecname))
+        # results.append(".section {}".format(newsecname))
+        results.append(".section {} {}".format(self.name, self.flags))
 
         # if self.name == '.got':
             # results.append(".fake_got:")

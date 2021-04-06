@@ -130,7 +130,7 @@ class Rewriter():
                 continue
             results.append(".skip 0x%x" % (function.start - last_addr))
             last_addr = function.start
-            results.append(".quad .LC%x // %s" % (function.start, function.name))
+            results.append("b .LC%x // %s" % (function.start, function.name))
 
 
 
@@ -564,11 +564,14 @@ class Symbolizer():
     def _adjust_adrp_section_pointer(self, container, secname, orig_off, instruction):
         assert instruction.mnemonic.startswith("adr")
         Rewriter.literal_saves += 1
-        base = container.sections[secname].base
+        if secname == ".text":  # special case as this is the only non-data section we need
+            secname = ".fake_text"
+            base = container.loader.elffile.get_section_by_name(".text")['sh_addr']
+        else:
+            base = container.sections[secname].base
         reg_name = instruction.reg_writes()[0]
         diff = base - orig_off
         op = '-' if diff > 0 else '+'
-        if secname == ".text": secname = ".fake_text"
         secname = secname + "_start"
         # will get overwritten by the compiler after reassembly. We introduce a 
         # "got_start" label so that we keep track of where the "old" got section was
