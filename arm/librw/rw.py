@@ -124,11 +124,12 @@ class Rewriter():
         results.append(".section .fake_text, \"ax\", @progbits")
         results.append(".align 12")
         results.append(".fake_text_start:")
-        last_addr = 0
+        last_addr = self.container.loader.elffile.get_section_by_name(".text")['sh_addr'] - 4
         for faddr, function in sorted(self.container.functions.items()):
             if function.name in Rewriter.GCC_FUNCTIONS:
                 continue
-            results.append(".skip 0x%x" % (function.start - last_addr))
+            skip = function.start - last_addr - 4
+            if skip > 0: results.append(".skip 0x%x" % (skip))
             last_addr = function.start
             results.append("b .LC%x // %s" % (function.start, function.name))
 

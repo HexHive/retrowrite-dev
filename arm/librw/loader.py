@@ -52,7 +52,6 @@ class Loader():
             bind = fvalue["bind"] if fixed_name != "main" else "STB_GLOBAL" #main should always be global
             function = Function(fixed_name, faddr, fvalue["sz"], bytes, bind)
             self.container.add_function(function)
-        # exit(1)
 
     def load_data_sections(self, seclist, section_filter=lambda x: True):
         debug(f"Loading sections...")
@@ -76,7 +75,7 @@ class Loader():
             bytes = more
             print(sec, hex(sval["base"]))
             ds = DataSection(sec, sval["base"], sval["sz"], bytes,
-                             sval['align'])
+                             (sval['align']))
 
             self.container.add_section(ds)
 

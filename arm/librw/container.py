@@ -639,7 +639,7 @@ class DataSection():
         self.sz = sz
         self.bytes = bytes
         self.relocations = list()
-        self.align = max(12, align)  # we want to be _at least_ page aligned
+        self.align = max(12, min(16, align))  # we want to be _at least_ page aligned
         self.named_globals = defaultdict(list)
         self.flags = f", \"{flags}\"" if len(flags) else ""
 
