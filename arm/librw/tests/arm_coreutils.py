@@ -59,7 +59,7 @@ def run_test():
         sys.stdout.flush()
 
         #retrowriting
-        print(cmd(f"python3 -m arm.rwtools.asan.asantool {binary_path} /tmp/{binary}_rw.s"))
+        print(cmd(f"./retrowrite --asan {binary_path} /tmp/{binary}_rw.s"))
         print(cmd(f"gcc -g -fsanitize=address /tmp/{binary}_rw.s -o /tmp/{binary}_rw.out"))
 
         #exec with each possible arg

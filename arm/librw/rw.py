@@ -406,7 +406,7 @@ class Symbolizer():
                             break
                     # if next_instr and next_instr.mnemonic in ["b.lt"]: p.found -= 1
                     paths_finished += [paths.pop(0)]
-                    debug("found path", len(paths))
+                    debug("found path " +  str(len(paths)))
                     continue
             if instr.mnemonic == "movz" and instr.cs.operands[0].reg == p.reg_index:
                 # if the register is written with a constant value, we just ignore this path
@@ -772,7 +772,9 @@ class Symbolizer():
                 debug(f"We're good, false alarm, the only possible section is: {secname}. Nice!")
                 return
             else:
+                debug("OMGGGGGGGGGGGGGGGG")
                 self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+                return
                 # Rewriter.total_text += 1
                 # no_func = 0
                 # for _, functiona in container.functions.items():

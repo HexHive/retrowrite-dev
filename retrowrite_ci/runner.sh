@@ -44,7 +44,7 @@ rm  $BENCHDIR/result/* || true
 
 # run retrowrite on binaries
 cp -r retrowrite_ci/* ./
-bash rewrite_all.sh nothing      # put rewritten files in folder bins_rw
+bash rewrite_all.sh something      # put rewritten files in folder bins_rw
 
 # prepare spec cpu benchmark
 export ASAN_OPTIONS=detect_leaks=0  # do not print ASAN leak report
@@ -65,7 +65,8 @@ cat plots/CPU2017.001.*.txt > plots/bASAN.txt || true
 # generate plot
 cd plots
 #python3 analyze_spec_results.py --inputs baseline.088_099.txt symbolized.090_096.txt source_asan.040.txt binary_asan.045_046_102.txt bASAN_563b724.txt bASAN.txt --plot out --pp
-python3 analyze_spec_results.py --inputs cloudlab_{baseline,source_asan,basan,valgrind}.txt bASAN.txt --plot out --pp
+#python3 analyze_spec_results.py --inputs cloudlab_{baseline,source_asan,basan,valgrind}.txt bASAN.txt --plot out --pp
+python3 analyze_spec_results.py --inputs cloudlab_{baseline}.txt bASAN.txt --plot out --pp
 
 pdftoppm -jpeg -r 300 out.pdf plot_image
 

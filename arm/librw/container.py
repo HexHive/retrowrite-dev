@@ -706,7 +706,7 @@ class DataSection():
         if not self.cache:
             return ""
 
-        critical(self.name)
+        debug(f"Adding section {self.name}")
         perms = {
                 ".got": "aw",
                 ".bss": "aw",

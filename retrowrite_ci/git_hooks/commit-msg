@@ -19,7 +19,7 @@ else
 
 	echo -e "\e[31mCurrent run_test.py configuration:"
 	echo -ne "\e[31;1m" 
-	grep -o "runcpu.*\"" retrowrite_ci/run_test.py
+	grep -v "#" retrowrite_ci/run_test.py | grep -o "runcpu.*\"" 
 	echo -e "\e[0m"
 
 	# Allows us to read user input below, assigns stdin to keyboard
