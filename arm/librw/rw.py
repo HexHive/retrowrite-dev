@@ -54,6 +54,9 @@ class Rewriter():
 
     literal_saves = 0
     total_globals = 0
+    total_text = 0
+    impossible_text = 0
+    trivial_text = 0
 
 
     # DATASECTIONS = [".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
@@ -114,7 +117,22 @@ class Rewriter():
             if function.name in Rewriter.GCC_FUNCTIONS:
                 continue
             results.append("\t.text\n%s" % (function))
-            results.append(".ltorg")  # XXX: fix this ugly hack
+            results.append(".ltorg")  # XXX: this is probably not necessary anymore
+
+
+
+        results.append(".section .fake_text, \"ax\", @progbits")
+        results.append(".align 12")
+        results.append(".fake_text_start:")
+        last_addr = 0
+        for faddr, function in sorted(self.container.functions.items()):
+            if function.name in Rewriter.GCC_FUNCTIONS:
+                continue
+            results.append(".skip 0x%x" % (function.start - last_addr))
+            last_addr = function.start
+            results.append(".quad .LC%x // %s" % (function.start, function.name))
+
+
 
 
         with open(self.outfile, 'w') as outfd:
@@ -122,6 +140,7 @@ class Rewriter():
 
         if Rewriter.total_globals > 0:
             info(f"Saved {Rewriter.literal_saves} out of {Rewriter.total_globals} global accesses ({Rewriter.literal_saves / Rewriter.total_globals * 100}% )")
+            info(f"Out of {Rewriter.total_text} .text pointers, {Rewriter.impossible_text} cannot be saved (of which {Rewriter.impossible_text - Rewriter.trivial_text} are non-trivial, in total {(Rewriter.impossible_text - Rewriter.trivial_text) / Rewriter.total_globals * 100}%) ")
         info(f"Success: retrowritten assembly to {self.outfile}")
 
 
@@ -549,6 +568,7 @@ class Symbolizer():
         reg_name = instruction.reg_writes()[0]
         diff = base - orig_off
         op = '-' if diff > 0 else '+'
+        if secname == ".text": secname = ".fake_text"
         secname = secname + "_start"
         # will get overwritten by the compiler after reassembly. We introduce a 
         # "got_start" label so that we keep track of where the "old" got section was
@@ -748,7 +768,22 @@ class Symbolizer():
                 self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
                 debug(f"We're good, false alarm, the only possible section is: {secname}. Nice!")
                 return
-
+            else:
+                self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+                # Rewriter.total_text += 1
+                # no_func = 0
+                # for _, functiona in container.functions.items():
+                    # if orig_off <= functiona.start <= orig_off + 0x1000:
+                        # no_func += 1
+                # if no_func > 1:
+                    # Rewriter.impossible_text += 1
+                    # nexti = function.cache[function.nexts[edx][0]]
+                    # if len(function.nexts[edx]) == 1 and nexti.cs.mnemonic == "add" and p.orig_reg in nexti.reg_writes_common() and p.orig_reg in nexti.reg_reads_common():
+                        # Rewriter.trivial_text += 1
+                    # elif len(function.nexts[function.addr_to_idx[nexti.address]]) == 1:
+                        # nexti = function.cache[function.nexts[function.nexts[edx][0]][0]]
+                        # if len(function.nexts[edx]) == 1 and nexti.cs.mnemonic == "add" and p.orig_reg in nexti.reg_writes_common() and p.orig_reg in nexti.reg_reads_common():
+                            # Rewriter.trivial_text += 1
 
         # if we got here, it's *very* bad, as we're *still* not sure which
         # section the global variable is in, or that section is the .text

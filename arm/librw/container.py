@@ -706,8 +706,39 @@ class DataSection():
         if not self.cache:
             return ""
 
+        critical(self.name)
+        perms = {
+                ".got": "aw",
+                ".bss": "aw",
+                ".data": "aw",
+                ".rodata": "aw",
+                ".data.rel.ro": "aw",
+                ".text": "ax",
+                ".init": "ax",
+                ".init_array": "ax",
+                ".fini_array": "ax",
+                ".fini": "ax",
+                ".plt": "ax",
+                ".fake_text": "ax",
+        }
+        newsecs = {
+                ".got":".goat",
+                ".bss":".bullshit_section",
+                ".data":".dota",
+                ".rodata":".rodota",
+        }
+
+        newsecname = ""
+        if self.name in newsecs:
+            progbits = "@progbits" if self.name != ".bss" else "@nobits"
+            secperms = perms[self.name] if self.name in perms else "aw"
+            newsecname = f"{newsecs[self.name]}, \"{secperms}\", {progbits}"
+        else:
+            newsecname = f"{self.name} {self.flags}"
+
+
         results = []
-        results.append(".section {} {}".format(self.name, self.flags))
+        results.append(".section {}".format(newsecname))
 
         # if self.name == '.got':
             # results.append(".fake_got:")
