@@ -645,9 +645,31 @@ class Symbolizer():
                s.base <= orig_off < s.base + s.sz:
                 possible_sections += [name]
 
+
+        text = container.text_section # check for .text, as it is not a datasection
+        ### FIXME
+        ### WARNING:
+        ### the text['sh_size'] - 0x320 down below is needed to fix adrp's at
+        ### 0x7073e4 and 0x6d8444 and 0x775470 in cpugcc_r, because
+        ### they point to .rodata but they also overlap in 0x31c with the .text
+        ### since heuristics are broken for the above adrp. We decide to ignore
+        ### the last 0x320 bytes of the text as a partial workaround
+        ### this will be fixed with the .fake_text directly followed by .rodota
+        ### mimicking the same section layout of the original binary
+        ### when I get to implement heuristics-free global pointer constructions
+        if text['sh_addr'] // 0x1000 == orig_off // 0x1000 or \
+            text['sh_addr'] <= orig_off < text['sh_addr'] + text['sh_size'] - 0x320:
+            possible_sections += ['.text']
+
+        if inst.address == 0x7073e4:
+            import IPython; IPython.embed() 
         if len(possible_sections) == 1:
             secname = possible_sections[0]
             if secname not in [".text"]:  # .text can get instrumented, we need to know the exact address
+                self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+                return
+            else:
+                print("OMGGGGGGGGGGGGGGGG" , inst.address)
                 self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
                 return
 
@@ -772,8 +794,8 @@ class Symbolizer():
                 self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
                 debug(f"We're good, false alarm, the only possible section is: {secname}. Nice!")
                 return
-            else:
-                debug("OMGGGGGGGGGGGGGGGG")
+            else: #XXX: remove this else case!!!!
+                print("OMGGGGGGGGGGGGGGGG" , inst.address)
                 self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
                 return
                 # Rewriter.total_text += 1
@@ -800,7 +822,7 @@ class Symbolizer():
 
 
         # we don't really want an ADRP in the middle of code, if possible
-        # so we erase it
+        # so we erase it 
         inst.mnemonic = "// " + inst.mnemonic
 
         for inst2, resolved_address, p_orig_reg in resolved_addresses:
