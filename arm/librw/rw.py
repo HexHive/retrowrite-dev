@@ -661,8 +661,6 @@ class Symbolizer():
             text['sh_addr'] <= orig_off < text['sh_addr'] + text['sh_size'] - 0x320:
             possible_sections += ['.text']
 
-        if inst.address == 0x7073e4:
-            import IPython; IPython.embed() 
         if len(possible_sections) == 1:
             secname = possible_sections[0]
             if secname not in [".text"]:  # .text can get instrumented, we need to know the exact address
