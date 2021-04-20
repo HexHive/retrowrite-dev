@@ -43,7 +43,7 @@ rm  $BENCHDIR/result/* || true
 
 
 # run retrowrite on binaries
-cp -r retrowrite_ci/* ./
+cp -r retrowrite_ci/* ./ 
 bash rewrite_all.sh something      # put rewritten files in folder bins_rw
 
 # prepare spec cpu benchmark
