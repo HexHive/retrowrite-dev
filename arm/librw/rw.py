@@ -663,13 +663,12 @@ class Symbolizer():
 
         if len(possible_sections) == 1:
             secname = possible_sections[0]
-            if secname not in [".text"]:  # .text can get instrumented, we need to know the exact address
-                self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
-                return
-            else:
-                print("OMGGGGGGGGGGGGGGGG" , inst.address)
-                self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
-                return
+            # even if it's text, we rewrite it
+            self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+            return
+
+        if inst.address == 0x5fb4: 
+            import IPython; IPython.embed() 
 
         debug(f"Global access at {inst}, multiple sections possible: {possible_sections}, trying to resolve address...")
 
