@@ -145,6 +145,11 @@ class Rewriter():
         info(f"Success: retrowritten assembly to {self.outfile}")
 
 
+        with open("assemble.sh", "w") as f:
+            f.write("gcc od.s -lm -o od -Wl,--section-start=.rodata=0x0,--section-start=.init_array=0x100000,--section-start=.data.rel.ro=0x200000,--section-start=.bss=0x300000")
+        info("Assembling instructions written to assemble.sh. Please run 'bash assemble.sh'")
+
+
 class Symbolizer():
     def __init__(self):
         self.bases = set()
@@ -1001,34 +1006,12 @@ class Symbolizer():
                 print("[x] Couldn't find valid section {:x}".format(
                     rel['offset']))
 
+# def is_data_section(sname, sval, container):
+    # # XXX: changeme, stolen from the kernel version
+    # return (
+        # (sval['flags'] & SH_FLAGS.SHF_ALLOC) != 0 and (
+            # (sval['flags'] & SH_FLAGS.SHF_EXECINSTR) == 0 or sname not in container.code_section_names
+        # ) and sval['sz'] > 0
+    # )
 
-if __name__ == "__main__":
-    from .loader import Loader
-    from .analysis import register
 
-    argp = argparse.ArgumentParser()
-
-    argp.add_argument("bin", type=str, help="Input binary to load")
-    argp.add_argument("outfile", type=str, help="Symbolized ASM output")
-
-    args = argp.parse_args()
-
-    loader = Loader(args.bin)
-
-    flist = loader.flist_from_symtab()
-    loader.load_functions(flist)
-
-    slist = loader.slist_from_symtab()
-    loader.load_data_sections(slist, lambda x: x in Rewriter.DATASECTIONS)
-
-    reloc_list = loader.reloc_list_from_symtab()
-    loader.load_relocations(reloc_list)
-
-    global_list = loader.global_data_list_from_symtab()
-    loader.load_globals_from_glist(global_list)
-
-    loader.container.attach_loader(loader)
-
-    rw = Rewriter(loader.container, args.outfile)
-    rw.symbolize()
-    rw.dump()
