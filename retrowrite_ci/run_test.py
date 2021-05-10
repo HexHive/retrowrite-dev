@@ -87,7 +87,8 @@ print("="*50)
 print("Finished. You can now run:")
 # print(f"cd {PATH_SPECPU} && source shrc && runcpu --nobuild --iterations 1 --config strace.cfg {final_str}")
 # print(f"cd {PATH_SPECPU} && source shrc && runcpu --nobuild --iterations 1 --config final.cfg {final_str}")
-print(f"cd {PATH_SPECPU} && source shrc && runcpu --rebuild --iterations 1 --config final_ASAN.cfg {final_str}")
+# print(f"cd {PATH_SPECPU} && source shrc && runcpu --rebuild --iterations 1 --config final_ASAN.cfg {final_str}")
 # print(f"cd {PATH_SPECPU} && source shrc && runcpu --rebuild --iterations 1 --config valgrind.cfg {final_str}")
+print(f"cd {PATH_SPECPU} && source shrc && runcpu --rebuild --iterations 1 --config perf.cfg {final_str}")
 # --size test --loose --fake 
 
