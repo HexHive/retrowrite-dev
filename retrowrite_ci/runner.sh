@@ -90,4 +90,4 @@ cd ../..
 mkdir -p ~/result
 mv $WORKDIR ~/result/
 
-echo "Finished!"
+echo "Finished!" 
