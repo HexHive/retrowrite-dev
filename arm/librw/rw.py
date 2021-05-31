@@ -624,7 +624,7 @@ class Symbolizer():
         if len(possible_sections) == 1:
             secname = possible_sections[0]
             if secname not in [".text"]:  # .text can get instrumented, we need to know the exact address
-                self._adjust_adrp_section_pointer_litpools(container, secname, orig_off, inst)
+                self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
                 return
 
         debug(f"Global access at {inst}, multiple sections possible: {possible_sections}, trying to resolve address...")
@@ -745,7 +745,7 @@ class Symbolizer():
         if len(possible_sections) == 1:
             secname = list(possible_sections)[0]
             if secname not in [".text"]:
-                self._adjust_adrp_section_pointer_litpools(container, secname, orig_off, inst)
+                self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
                 debug(f"We're good, false alarm, the only possible section is: {secname}. Nice!")
                 return
 
