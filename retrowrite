@@ -153,7 +153,6 @@ if __name__ == "__main__":
         print(f"Architecture {arch} not supported!")
         exit(1)
 
-
     loader = Loader(args.bin)
     if loader.is_pie() == False and args.ignore_no_pie == False:
         print("***** RetroWrite requires a position-independent executable. *****")
@@ -172,8 +171,11 @@ if __name__ == "__main__":
     slist = loader.slist_from_symtab()
     if args.kernel:
         loader.load_data_sections(slist, krw.is_data_section)
+        loader.load_data_sections(slist, krw.is_data_section)
     else:
-        loader.load_data_sections(slist, lambda x: True)
+        loader.load_data_sections(slist, lambda x: x in Rewriter.DATASECTIONS)
+        # loader.load_data_sections(slist, lambda x: True)
+        # loader.load_data_sections(slist, lambda x: slist[x]['base'] > 0 and x not in ['.text','.plt','.init'] and ".note" not in x)
 
     reloc_list = loader.reloc_list_from_symtab()
     loader.load_relocations(reloc_list)

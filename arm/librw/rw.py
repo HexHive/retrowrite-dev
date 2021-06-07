@@ -61,7 +61,8 @@ class Rewriter():
 
     # DATASECTIONS = [".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
     # DATASECTIONS = [".got", ".fini_array",  ".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
-    DATASECTIONS = [".got", ".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
+    # DATASECTIONS = [".got", ".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
+    DATASECTIONS = [".got", ".rodata", ".data", ".bss", ".data.rel.ro", ".init_array", ".fini_array", ".got.plt"]
 
     def __init__(self, container, outfile):
         #XXX: remove global
@@ -279,6 +280,7 @@ class Symbolizer():
                         if any(exit in name for exit in ["abort", "exit"]): #XXX: fix this ugly hack
                             function.nexts[inst_idx] = []
                     else:
+                        exit(1)
                         gotent = container.is_target_gotplt(target)
                         if gotent:
                             found = False

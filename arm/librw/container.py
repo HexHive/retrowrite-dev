@@ -42,6 +42,7 @@ class Container():
         self.gotplt_entries = list()
 
     def add_function(self, function):
+        print("Adding ", function.name, " at addr ", function.start)
         if function.name in self.function_names:
             function.name = "%s_%x" % (function.name, function.start)
         self.functions[function.start] = function

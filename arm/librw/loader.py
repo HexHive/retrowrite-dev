@@ -52,6 +52,11 @@ class Loader():
             bind = fvalue["bind"] if fixed_name != "main" else "STB_GLOBAL" #main should always be global
             function = Function(fixed_name, faddr, fvalue["sz"], bytes, bind)
             self.container.add_function(function)
+        # entrypoint = self.elffile.header.e_entry
+        # startsize = 80
+        # bytes = data[entrypoint - base:entrypoint - base + startsize]
+        # start = Function("_start", entrypoint, startsize, bytes, "STB_GLOBAL") #_start is always global
+        # self.container.add_function(start)
 
     def load_data_sections(self, seclist, section_filter=lambda x: True):
         debug(f"Loading sections...")
@@ -73,7 +78,7 @@ class Loader():
                         [0x0 for _ in range(0, sval['sz'] - len(more))])
 
             bytes = more
-            print(sec, hex(sval["base"]))
+            print("Adding section: ", sec, hex(sval["base"]), "with size", hex(sval['sz']))
             ds = DataSection(sec, sval["base"], sval["sz"], bytes,
                              (sval['align']))
 
@@ -183,6 +188,8 @@ class Loader():
                 'offset': section['sh_offset'],
                 'align': section['sh_addralign'],
             }
+            # print(section.name, hex(section['sh_addr']))
+        # exit(1)
 
         return sections
 
@@ -223,29 +230,3 @@ class Loader():
                     })
 
         return global_list
-
-
-if __name__ == "__main__":
-    from .rw import Rewriter
-
-    argp = argparse.ArgumentParser()
-
-    argp.add_argument("bin", type=str, help="Input binary to load")
-    argp.add_argument(
-        "--flist", type=str, help="Load function list from .json file")
-
-    args = argp.parse_args()
-
-    loader = Loader(args.bin)
-
-    flist = loader.flist_from_symtab()
-    loader.load_functions(flist)
-
-    slist = loader.slist_from_symtab()
-    loader.load_data_sections(slist, lambda x: x in Rewriter.DATASECTIONS)
-
-    reloc_list = loader.reloc_list_from_symtab()
-    loader.load_relocations(reloc_list)
-
-    global_list = loader.global_data_list_from_symtab()
-    loader.load_globals_from_glist(global_list)
