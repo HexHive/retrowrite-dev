@@ -48,6 +48,7 @@ class Loader():
             section_offset = faddr - base
             bytes = data[section_offset:section_offset + fvalue["sz"]]
 
+
             fixed_name = fvalue["name"].replace("@", "_")
             bind = fvalue["bind"] if fixed_name != "main" else "STB_GLOBAL" #main should always be global
             function = Function(fixed_name, faddr, fvalue["sz"], bytes, bind)
@@ -223,29 +224,3 @@ class Loader():
                     })
 
         return global_list
-
-
-if __name__ == "__main__":
-    from .rw import Rewriter
-
-    argp = argparse.ArgumentParser()
-
-    argp.add_argument("bin", type=str, help="Input binary to load")
-    argp.add_argument(
-        "--flist", type=str, help="Load function list from .json file")
-
-    args = argp.parse_args()
-
-    loader = Loader(args.bin)
-
-    flist = loader.flist_from_symtab()
-    loader.load_functions(flist)
-
-    slist = loader.slist_from_symtab()
-    loader.load_data_sections(slist, lambda x: x in Rewriter.DATASECTIONS)
-
-    reloc_list = loader.reloc_list_from_symtab()
-    loader.load_relocations(reloc_list)
-
-    global_list = loader.global_data_list_from_symtab()
-    loader.load_globals_from_glist(global_list)

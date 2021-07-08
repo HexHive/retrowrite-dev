@@ -34,16 +34,16 @@ class Rewriter():
         "__do_global_ctors_aux",
         "__register_frame_info",
         "deregister_tm_clones",
-        "register_tm_clones",
-        "__do_global_dtors_aux",
-        "__frame_dummy_init_array_entry",
-        "__init_array_start",
-        "__do_global_dtors_aux_fini_array_entry",
-        "__init_array_end",
-        "__stack_chk_fail",
-        "__cxa_atexit",
-        "__cxa_finalize",
-        "call_weak_fn" #not really sure about this, but imho we should'nt touch it
+        # "register_tm_clones",
+        # "__do_global_dtors_aux",
+        # "__frame_dummy_init_array_entry",
+        # "__init_array_start",
+        # "__do_global_dtors_aux_fini_array_entry",
+        # "__init_array_end",
+        # "__stack_chk_fail",
+        # "__cxa_atexit",
+        # "__cxa_finalize",
+        # "call_weak_fn" #not really sure about this, but imho we should'nt touch it
     ]
 
     GCC_RELOCATIONS = [ # relocations added by the compiler. Do not touch em!
@@ -1000,35 +1000,3 @@ class Symbolizer():
             else:
                 print("[x] Couldn't find valid section {:x}".format(
                     rel['offset']))
-
-
-if __name__ == "__main__":
-    from .loader import Loader
-    from .analysis import register
-
-    argp = argparse.ArgumentParser()
-
-    argp.add_argument("bin", type=str, help="Input binary to load")
-    argp.add_argument("outfile", type=str, help="Symbolized ASM output")
-
-    args = argp.parse_args()
-
-    loader = Loader(args.bin)
-
-    flist = loader.flist_from_symtab()
-    loader.load_functions(flist)
-
-    slist = loader.slist_from_symtab()
-    loader.load_data_sections(slist, lambda x: x in Rewriter.DATASECTIONS)
-
-    reloc_list = loader.reloc_list_from_symtab()
-    loader.load_relocations(reloc_list)
-
-    global_list = loader.global_data_list_from_symtab()
-    loader.load_globals_from_glist(global_list)
-
-    loader.container.attach_loader(loader)
-
-    rw = Rewriter(loader.container, args.outfile)
-    rw.symbolize()
-    rw.dump()

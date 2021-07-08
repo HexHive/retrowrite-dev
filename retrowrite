@@ -173,7 +173,7 @@ if __name__ == "__main__":
     if args.kernel:
         loader.load_data_sections(slist, krw.is_data_section)
     else:
-        loader.load_data_sections(slist, lambda x: x in Rewriter.DATASECTIONS)
+        loader.load_data_sections(slist, lambda x: x != ".text")
 
     reloc_list = loader.reloc_list_from_symtab()
     loader.load_relocations(reloc_list)
