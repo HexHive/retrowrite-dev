@@ -48,6 +48,7 @@ class Loader():
             section_offset = faddr - base
             bytes = data[section_offset:section_offset + fvalue["sz"]]
 
+
             fixed_name = fvalue["name"].replace("@", "_")
             bind = fvalue["bind"] if fixed_name != "main" else "STB_GLOBAL" #main should always be global
             function = Function(fixed_name, faddr, fvalue["sz"], bytes, bind)

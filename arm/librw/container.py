@@ -88,14 +88,42 @@ class Container():
 
         return False
 
+    def _fix_broken_functions(self):
+        for _, function in self.functions.items():
+            if function.sz > 0: continue
+
+            print(function.name)
+            print(self.sections.keys())
+
+            newsec = self.section_of_address(function.start)
+            if newsec.name == ".text":
+                newsec = self.text_section
+                base = newsec['sh_addr']
+                data = newsec.data()
+            else:
+                base = newsec.base
+                data = newsec.bytes
+
+
+            section_offset = function.start - base
+            bytes = b""
+            for c in range(0, 0x100, 4):
+                bytes += data[section_offset + c:section_offset + c + 4]
+                print(bytes[-4:], c, function.name)
+                if bytes[-4:] == b"\xc0\x03\x5f\xd6": break
+            function.bytes = bytes
+            print("disasming ", function.name)
+            function.disasm()
+
+
     def attach_loader(self, loader):
         self.loader = loader
         self.text_section = self.loader.elffile.get_section_by_name(".text")
 
+        self._fix_broken_functions()
+
 
     def is_in_section(self, secname, value):
-        assert self.loader, "No loader found!"
-
         if secname in self.sections:
             section = self.sections[secname]
         if secname == ".text":
@@ -501,6 +529,7 @@ class Function():
 
 
     def __str__(self):
+        print(self.name)
         assert self.cache, "Function not disassembled!"
 
         results = []

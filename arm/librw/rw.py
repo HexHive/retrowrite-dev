@@ -34,16 +34,16 @@ class Rewriter():
         "__do_global_ctors_aux",
         "__register_frame_info",
         "deregister_tm_clones",
-        "register_tm_clones",
-        "__do_global_dtors_aux",
-        "__frame_dummy_init_array_entry",
-        "__init_array_start",
-        "__do_global_dtors_aux_fini_array_entry",
-        "__init_array_end",
-        "__stack_chk_fail",
-        "__cxa_atexit",
-        "__cxa_finalize",
-        "call_weak_fn" #not really sure about this, but imho we should'nt touch it
+        # "register_tm_clones",
+        # "__do_global_dtors_aux",
+        # "__frame_dummy_init_array_entry",
+        # "__init_array_start",
+        # "__do_global_dtors_aux_fini_array_entry",
+        # "__init_array_end",
+        # "__stack_chk_fail",
+        # "__cxa_atexit",
+        # "__cxa_finalize",
+        # "call_weak_fn" #not really sure about this, but imho we should'nt touch it
     ]
 
     GCC_RELOCATIONS = [ # relocations added by the compiler. Do not touch em!
@@ -1007,13 +1007,3 @@ class Symbolizer():
             else:
                 print("[x] Couldn't find valid section {:x}".format(
                     rel['offset']))
-
-# def is_data_section(sname, sval, container):
-    # # XXX: changeme, stolen from the kernel version
-    # return (
-        # (sval['flags'] & SH_FLAGS.SHF_ALLOC) != 0 and (
-            # (sval['flags'] & SH_FLAGS.SHF_EXECINSTR) == 0 or sname not in container.code_section_names
-        # ) and sval['sz'] > 0
-    # )
-
-
