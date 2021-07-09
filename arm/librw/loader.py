@@ -6,9 +6,11 @@ from collections import defaultdict
 from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import SymbolTableSection
 from elftools.elf.relocation import RelocationSection
+from elftools.elf.constants import SH_FLAGS
 
 from .container import Container, Function, Section
 from .disasm import disasm_bytes
+from .rw import Rewriter
 
 from arm.librw.util.logging import *
 
@@ -45,9 +47,10 @@ class Loader():
         data = section.data()
         base = section['sh_addr']
         for faddr, fvalue in fnlist.items():
+            self.container.section_of_address(faddr).functions += [faddr]
+
             section_offset = faddr - base
             bytes = data[section_offset:section_offset + fvalue["sz"]]
-
 
             fixed_name = fvalue["name"].replace("@", "_")
             bind = fvalue["bind"] if fixed_name != "main" else "STB_GLOBAL" #main should always be global
@@ -59,8 +62,28 @@ class Loader():
         # start = Function("_start", entrypoint, startsize, bytes, "STB_GLOBAL") #_start is always global
         # self.container.add_function(start)
 
-    def load_data_sections(self, seclist, section_filter=lambda x: True):
-        debug(f"Loading data sections...")
+    def _is_data_section(self, sname, sval):
+        # A data section should be present in memory (SHF_ALLOC), and its size should
+        # be greater than 0. 
+        return (
+            sval['sz'] > 0 and
+            (sval['flags'] & SH_FLAGS.SHF_ALLOC) != 0 and (
+                (sval['flags'] & SH_FLAGS.SHF_EXECINSTR) == 0 or sname not in Rewriter.CODESECTIONS
+            ) 
+        )
+
+    def _is_code_section(self, sname, sval):
+        # A code section should be present in memory (SHF_ALLOC), and its size should
+        # be greater than 0. 
+        return (
+            sval['sz'] > 0 and
+            (sval['flags'] & SH_FLAGS.SHF_ALLOC) != 0 and (
+                (sval['flags'] & SH_FLAGS.SHF_EXECINSTR) == 1 or sname not in Rewriter.DATASECTIONS
+            ) 
+        )
+
+    def load_sections(self, seclist, section_filter=lambda x: True):
+        debug(f"Loading sections...")
         for sec in [sec for sec in seclist if section_filter(sec)]:
             sval = seclist[sec]
             section = self.elffile.get_section_by_name(sec)
@@ -83,7 +106,10 @@ class Loader():
             ds = Section(sec, sval["base"], sval["sz"], bytes,
                              (sval['align']))
 
-            self.container.add_section(ds)
+            if self._is_data_section(sec, sval):
+                self.container.add_data_section(ds)
+            elif self._is_code_section(sec, sval):
+                self.container.add_code_section(ds)
 
         # Find if there is a plt section
         for sec in seclist:
@@ -188,9 +214,9 @@ class Loader():
                 'sz': section['sh_size'],
                 'offset': section['sh_offset'],
                 'align': section['sh_addralign'],
+                'flags': section['sh_flags'],
+                'type': section['sh_type'],
             }
-            # print(section.name, hex(section['sh_addr']))
-        # exit(1)
 
         return sections
 

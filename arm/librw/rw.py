@@ -102,28 +102,33 @@ class Rewriter():
 
         results = list()
         for sec, section in sorted(
-                self.container.sections.items(), key=lambda x: x[1].base):
+                self.container.datasections.items(), key=lambda x: x[1].base):
             results.append("%s" % (section))
 
-        results.append(".section .text")
-        results.append(".align 16")
 
 
-        section = self.container.loader.elffile.get_section_by_name(".text")
-        data = section.data()
-        last_addr = base = section['sh_addr']
-        for faddr, function in sorted(self.container.functions.items()):
-            for addr in range(last_addr, faddr): # fill in space between functions.
-                results.append(".LC%x: // filler between functions" % (addr))
-                results.append(f"\t .byte {hex(data[addr - base])}")
-            last_addr = faddr + function.sz
-            if function.name in Rewriter.GCC_FUNCTIONS:
-                continue
-            results.append("\t.text\n%s" % (function))
-            results.append(".ltorg")  # XXX: this is probably not necessary anymore
+        for section in self.container.codesections.values():
+            results.append(f".section {section.name}")
+            results.append(".align 16")
+            data = section.bytes
+            last_addr = base = section.base
+            for faddr in sorted(section.functions):
+                function = self.container.functions[faddr]
+                for addr in range(last_addr, faddr): # fill in space between functions.
+                    results.append(".LC%x: // filler between functions" % (addr))
+                    results.append(f"\t .byte {hex(data[addr - base])}")
+                last_addr = faddr + function.sz
+                if function.name in Rewriter.GCC_FUNCTIONS:
+                    continue
+                results.append("\t.text\n%s" % (function))
+                results.append(".ltorg")  # XXX: this is probably not necessary anymore
 
 
-
+        # XXX: 
+        // TODO 2021/07/09 15:25 -  
+        # XXX: 
+        # fai la stessa cosa di sopra
+        # con il for sulle section
         results.append(".section .fake_text, \"ax\", @progbits")
         results.append(".align 12")
         results.append(".fake_text_start:")

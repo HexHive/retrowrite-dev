@@ -28,6 +28,7 @@ class Container():
         self.functions = dict()
         self.function_names = set()
         self.datasections = dict()
+        self.codesections = dict()
         self.globals = None
         self.relocations = defaultdict(list)
         self.loader = None
@@ -96,22 +97,15 @@ class Container():
     def _fix_broken_functions(self):
         # some functions (like register_tm_clones) report a size of 0
         # here we try to work around that
+        # XXX: ideally all this code should be in loader.load_functions()
         for _, function in self.functions.items():
-            if function.sz > 0: continue
-
-            print(function.name)
-            print(self.datasections.keys())
+            if function.sz > 0:  # this is not broken
+                continue
 
             newsec = self.section_of_address(function.start)
-            if newsec.name == ".text":
-                newsec = self.text_section
-                base = newsec['sh_addr']
-                # import IPython; IPython.embed() 
-                data = newsec.data()
-            else:
-                base = newsec.base
-                data = newsec.bytes
-
+            newsec.functions += [function.start]
+            base = newsec.base
+            data = newsec.bytes
 
             section_offset = function.start - base
             bytes = b""
@@ -131,15 +125,12 @@ class Container():
 
 
     def is_in_section(self, secname, value):
+        if secname in self.codesections:
+            section = self.codesections[secname]
         if secname in self.datasections:
             section = self.datasections[secname]
-        if secname == ".text":
-            if self.text_section == None: return True
-            section = self.text_section
 
-        base = section['sh_addr']
-        sz = section['sh_size']
-        if base <= value < base + sz:
+        if section.base <= value < section.base + section.sz:
             return True
         return False
 
@@ -147,13 +138,10 @@ class Container():
         self.relocations[section_name].extend(relocations)
 
     def section_of_address(self, addr):
-        for _, section in self.datasections.items():
+        for section in list(self.datasections.values()) + list(self.codesections.values()):
             if section.base == 0: continue # ignore stuff such as .debug_info
             if section.base <= addr < section.base + section.sz:
                 return section
-        # check for .text, as container.datasections has only datasections
-        if self.is_in_section(".text", addr):
-            return self.text_section
         return None
 
     def function_of_address(self, addr):
@@ -677,6 +665,7 @@ class Section():
         self.sz = sz
         self.bytes = bytes
         self.relocations = list()
+        self.functions = list()  # list of addrs of functions that are in this section
         self.align = max(12, min(16, align))  # we want to be _at least_ page aligned
         self.named_globals = defaultdict(list)
         self.flags = f", \"{flags}\"" if len(flags) else ""
