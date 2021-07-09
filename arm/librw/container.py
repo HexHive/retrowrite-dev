@@ -27,7 +27,7 @@ class Container():
     def __init__(self):
         self.functions = dict()
         self.function_names = set()
-        self.sections = dict()
+        self.datasections = dict()
         self.globals = None
         self.relocations = defaultdict(list)
         self.loader = None
@@ -48,9 +48,13 @@ class Container():
         self.functions[function.start] = function
         self.function_names.add(function.name)
 
-    def add_section(self, section):
-        debug(f"Added {section.name}")
-        self.sections[section.name] = section
+    def add_data_section(self, section):
+        debug(f"Added data section {section.name}")
+        self.datasections[section.name] = section
+
+    def add_code_section(self, section):
+        debug(f"Added code section {section.name}")
+        self.codesections[section.name] = section
 
     def add_globals(self, globals):
         self.globals = globals
@@ -58,7 +62,7 @@ class Container():
 
         for location, gobjs in globals.items():
             found = None
-            for sec, section in self.sections.items():
+            for sec, section in self.datasections.items():
                 if section.base <= location < section.base + section.sz:
                     found = sec
                     break
@@ -69,7 +73,7 @@ class Container():
             for gobj in gobjs:
                 if gobj['name'] in done:
                     continue
-                self.sections[found].add_global(location, gobj['name'],
+                self.datasections[found].add_global(location, gobj['name'],
                                                 gobj['sz'])
                 done.add(gobj['name'])
 
@@ -88,17 +92,21 @@ class Container():
 
         return False
 
+
     def _fix_broken_functions(self):
+        # some functions (like register_tm_clones) report a size of 0
+        # here we try to work around that
         for _, function in self.functions.items():
             if function.sz > 0: continue
 
             print(function.name)
-            print(self.sections.keys())
+            print(self.datasections.keys())
 
             newsec = self.section_of_address(function.start)
             if newsec.name == ".text":
                 newsec = self.text_section
                 base = newsec['sh_addr']
+                # import IPython; IPython.embed() 
                 data = newsec.data()
             else:
                 base = newsec.base
@@ -110,10 +118,9 @@ class Container():
             for c in range(0, 0x100, 4):
                 bytes += data[section_offset + c:section_offset + c + 4]
                 print(bytes[-4:], c, function.name)
+                # we declare the function to be big until the first ret
                 if bytes[-4:] == b"\xc0\x03\x5f\xd6": break
             function.bytes = bytes
-            print("disasming ", function.name)
-            function.disasm()
 
 
     def attach_loader(self, loader):
@@ -124,8 +131,8 @@ class Container():
 
 
     def is_in_section(self, secname, value):
-        if secname in self.sections:
-            section = self.sections[secname]
+        if secname in self.datasections:
+            section = self.datasections[secname]
         if secname == ".text":
             if self.text_section == None: return True
             section = self.text_section
@@ -140,10 +147,11 @@ class Container():
         self.relocations[section_name].extend(relocations)
 
     def section_of_address(self, addr):
-        for _, section in self.sections.items():
+        for _, section in self.datasections.items():
+            if section.base == 0: continue # ignore stuff such as .debug_info
             if section.base <= addr < section.base + section.sz:
                 return section
-        # check for .text, as container.sections has only datasections
+        # check for .text, as container.datasections has only datasections
         if self.is_in_section(".text", addr):
             return self.text_section
         return None
@@ -661,7 +669,7 @@ class InstrumentedInstruction():
             return "%s" % (self.code)
 
 
-class DataSection():
+class Section():
     def __init__(self, name, base, sz, bytes, align=16, flags=""):
         self.name = name
         self.cache = list()

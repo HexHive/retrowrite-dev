@@ -7,7 +7,7 @@ from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import SymbolTableSection
 from elftools.elf.relocation import RelocationSection
 
-from .container import Container, Function, DataSection
+from .container import Container, Function, Section
 from .disasm import disasm_bytes
 
 from arm.librw.util.logging import *
@@ -60,7 +60,7 @@ class Loader():
         # self.container.add_function(start)
 
     def load_data_sections(self, seclist, section_filter=lambda x: True):
-        debug(f"Loading sections...")
+        debug(f"Loading data sections...")
         for sec in [sec for sec in seclist if section_filter(sec)]:
             sval = seclist[sec]
             section = self.elffile.get_section_by_name(sec)
@@ -80,7 +80,7 @@ class Loader():
 
             bytes = more
             print("Adding section: ", sec, hex(sval["base"]), "with size", hex(sval['sz']))
-            ds = DataSection(sec, sval["base"], sval["sz"], bytes,
+            ds = Section(sec, sval["base"], sval["sz"], bytes,
                              (sval['align']))
 
             self.container.add_section(ds)
@@ -107,8 +107,8 @@ class Loader():
             if reloc_section == ".rela.plt":
                 self.container.add_plt_information(relocations)
 
-            if section in self.container.sections:
-                self.container.sections[section].add_relocations(relocations)
+            if section in self.container.datasections:
+                self.container.datasections[section].add_relocations(relocations)
             else:
                 print("[*] Relocations for a section that's not loaded:",
                       reloc_section)

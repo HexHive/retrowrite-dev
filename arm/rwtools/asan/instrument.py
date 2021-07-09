@@ -9,7 +9,7 @@ from capstone.x86_const import X86_REG_RSP
 from capstone import CS_OP_IMM, CS_GRP_JUMP, CS_GRP_RET, CS_OP_REG, CS_OP_MEM
 
 from . import snippets as sp
-from arm.librw.container import (DataCell, InstrumentedInstruction, DataSection,
+from arm.librw.container import (DataCell, InstrumentedInstruction, Section,
                              Function)
 from arm.librw.analysis.stackframe import StackFrameAnalysis
 from arm.librw.util.logging import *

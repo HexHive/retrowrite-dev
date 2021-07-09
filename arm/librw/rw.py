@@ -1,5 +1,6 @@
 import argparse
 import copy
+import itertools
 from collections import defaultdict, deque
 
 from capstone import CS_OP_IMM, CS_GRP_JUMP, CS_GRP_CALL, CS_OP_MEM, CS_OP_REG
@@ -18,22 +19,22 @@ from arm.librw.emulation import Path, Expr
 class Rewriter():
     GCC_FUNCTIONS = [ # functions added by the compiler. No use in rewriting them
         "_start",
-        "__libc_start_main",
-        "__libc_csu_fini",
-        "__libc_csu_init",
-        "__lib_csu_fini",
-        "_init",
-        "__libc_init_first",
-        "_fini",
-        "_rtld_fini",
-        "_exit",
-        "__get_pc_think_bx",
-        "__do_global_dtors_aux",
-        "__gmon_start",
-        "frame_dummy",
-        "__do_global_ctors_aux",
-        "__register_frame_info",
-        "deregister_tm_clones",
+        # "__libc_start_main",
+        # "__libc_csu_fini",
+        # "__libc_csu_init",
+        # "__lib_csu_fini",
+        # "_init",
+        # "__libc_init_first",
+        # "_fini",
+        # "_rtld_fini",
+        # "_exit",
+        # "__get_pc_think_bx",
+        # "__do_global_dtors_aux",
+        # "__gmon_start",
+        # "frame_dummy",
+        # "__do_global_ctors_aux",
+        # "__register_frame_info",
+        # "deregister_tm_clones",
         # "register_tm_clones",
         # "__do_global_dtors_aux",
         # "__frame_dummy_init_array_entry",
@@ -63,13 +64,14 @@ class Rewriter():
     # DATASECTIONS = [".got", ".fini_array",  ".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
     # DATASECTIONS = [".got", ".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
     DATASECTIONS = [".got", ".rodata", ".data", ".bss", ".data.rel.ro", ".init_array", ".fini_array", ".got.plt"]
+    CODESECTIONS = [".text", ".init", ".fini", ".plt"]
 
     def __init__(self, container, outfile):
         #XXX: remove global
         self.container = container
         self.outfile = outfile
 
-        for sec, section in self.container.sections.items():
+        for sec, section in self.container.datasections.items():
             section.load()
 
         for _, function in self.container.functions.items():
@@ -161,8 +163,9 @@ class Symbolizer():
     # TODO: Replace generic call labels with function names instead
     def symbolize_text_section(self, container, context):
         # Symbolize using relocation information.
-        for rel in container.relocations[".text"]:
-            info("INSTRUCTION NOT FOUND")
+        # for rel in container.relocations[".text"]:
+        code_relocations = list(map(lambda x: container.relocations[x], Rewriter.CODESECTIONS))
+        for rel in list(itertools.chain.from_iterable(code_relocations)):
             fn = container.function_of_address(rel['offset'])
             if not fn or fn.name in Rewriter.GCC_FUNCTIONS:
                 continue
@@ -271,7 +274,7 @@ class Symbolizer():
                     function.possible_switches += [instruction.address]
                 if target:
                     # Check if the target is in .text section.
-                    if container.is_in_section(".text", target):
+                    if any([container.is_in_section(x, target) for x in Rewriter.CODESECTIONS]):
                         function.bbstarts.add(target)
                         instruction.op_str = instruction.op_str.replace("#0x%x" % target, ".LC%x" % target)
                     elif target in container.plt:
@@ -280,6 +283,7 @@ class Symbolizer():
                         if any(exit in name for exit in ["abort", "exit"]): #XXX: fix this ugly hack
                             function.nexts[inst_idx] = []
                     else:
+                        critical("target outside code section. Aborting.")
                         exit(1)
                         gotent = container.is_target_gotplt(target)
                         if gotent:
@@ -440,7 +444,7 @@ class Symbolizer():
         return true_paths_finished[0].found
 
     def symbolize_switch_tables(self, container, context):
-        rodata = container.sections.get(".rodata", None)
+        rodata = container.datasections.get(".rodata", None)
         if not rodata:
             assert False
         for _, function in container.functions.items():
@@ -527,7 +531,7 @@ class Symbolizer():
         # Find the nearest section
         sec = None
         for sname, sval in sorted(
-                container.sections.items(), key=lambda x: x[1].base):
+                container.datasections.items(), key=lambda x: x[1].base):
             if sval.base >= target:
                 break
             sec = sval
@@ -542,7 +546,7 @@ class Symbolizer():
         return end, adjust
 
     def _is_target_in_region(self, container, target):
-        for sec, sval in container.sections.items():
+        for sec, sval in container.datasections.items():
             if sval.base <= target < sval.base + sval.sz:
                 return True
 
@@ -557,7 +561,7 @@ class Symbolizer():
         # to stuff like  ldr x0, =(.bss - (offset))
         # to make global variables work
         assert instruction.mnemonic.startswith("adr")
-        base = container.sections[secname].base
+        base = container.datasections[secname].base
         reg_name = instruction.reg_writes()[0]
         diff = base - orig_off
         op = '-' if diff > 0 else '+'
@@ -576,7 +580,7 @@ class Symbolizer():
             secname = ".fake_text"
             base = container.loader.elffile.get_section_by_name(".text")['sh_addr']
         else:
-            base = container.sections[secname].base
+            base = container.datasections[secname].base
         reg_name = instruction.reg_writes()[0]
         diff = base - orig_off
         op = '-' if diff > 0 else '+'
@@ -647,7 +651,7 @@ class Symbolizer():
         orig_reg = inst.reg_writes()[0]
 
         possible_sections = []
-        for name,s in container.sections.items():
+        for name,s in container.datasections.items():
             if s.base // 0x1000 == orig_off // 0x1000 or \
                s.base <= orig_off < s.base + s.sz:
                 possible_sections += [name]
@@ -716,13 +720,6 @@ class Symbolizer():
                 debug(f"Found stack load at {inst2}, from {inst}!")
                 new_reg = inst2.cs.reg_name(inst2.cs.operands[0].reg)
                 paths.append(path(new_reg, p.idx + 1, [], p.orig_off, copy.deepcopy(p.visited)))
-
-            # if inst.address == 0x624d9c:
-                # if inst2.address == 0x624f48:
-                    # if p.orig_reg != "None":
-                        # print(p.orig_reg)
-                        # print(inst2.reg_reads())
-                        # exit(1)
 
             if p.orig_reg in inst2.reg_reads():
                 if inst2.instrumented or '=' in inst2.op_str:  # XXX: ugly hack to avoid reinstrumenting instructions
@@ -994,7 +991,7 @@ class Symbolizer():
 
     def symbolize_data_sections(self, container, context=None):
         # Section specific relocation
-        for secname, section in container.sections.items():
+        for secname, section in container.datasections.items():
             for rel in section.relocations:
                 self._handle_relocation(container, section, rel)
 
