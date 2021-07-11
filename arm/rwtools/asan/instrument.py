@@ -625,6 +625,10 @@ class Instrument():
     def do_instrument(self):
         #self.instrument_globals()
         self.instrument_mem_accesses()
+
+        #XXX: 
+        assert(False, ".init_array needs to be instrumented")
+
         #XXX: ARM, fix those two functions
         # self.instrument_stack()
         # self.instrument_init_array()

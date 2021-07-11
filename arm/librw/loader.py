@@ -89,20 +89,21 @@ class Loader():
             section = self.elffile.get_section_by_name(sec)
             data = section.data()
             more = bytearray()
-            if sec == ".init_array":
-                if len(data) > 8:
-                    data = data[8:]
-                else:
-                    data = b''
-                more.extend(data)
-            else:
-                more.extend(data)
-                if len(more) < sval['sz']:
-                    more.extend(
-                        [0x0 for _ in range(0, sval['sz'] - len(more))])
+            # if sec == ".init_array":
+                # if len(data) > 8:
+                    # data = data[8:]
+                # else:
+                    # data = b''
+                # more.extend(data)
+            # else:
+            more.extend(data)
+            if len(more) < sval['sz']:
+                more.extend(
+                    [0x0 for _ in range(0, sval['sz'] - len(more))])
 
             bytes = more
             print("Adding section: ", sec, hex(sval["base"]), "with size", hex(sval['sz']))
+            sec = sec.replace("-","_")
             ds = Section(sec, sval["base"], sval["sz"], bytes,
                              (sval['align']))
 

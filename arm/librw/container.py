@@ -103,7 +103,7 @@ class Container():
                 continue
 
             newsec = self.section_of_address(function.start)
-            newsec.functions += [function.start]
+            # newsec.functions += [function.start]
             base = newsec.base
             data = newsec.bytes
 
@@ -114,7 +114,19 @@ class Container():
                 print(bytes[-4:], c, function.name)
                 # we declare the function to be big until the first ret
                 if bytes[-4:] == b"\xc0\x03\x5f\xd6": break
+                # special case for _start, there is no ret, as it ends on the call to abort
+                if function.name == "_start":
+                    decoded = disasm.disasm_bytes(bytes[-4:], function.start + c)[0]
+                    target = decoded.operands[-1].imm
+                    if decoded.mnemonic == "bl":
+                        if target in self.plt  and self.plt[target] == "abort":
+                            break
+                # special case, only 2 instructions for those functions
+                if function.name in ["frame_dummy", "format_address_none"]:
+                    if c == 4: break
+                        
             function.bytes = bytes
+            function.sz = len(bytes)
 
 
     def attach_loader(self, loader):

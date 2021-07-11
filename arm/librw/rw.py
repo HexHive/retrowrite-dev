@@ -18,7 +18,7 @@ from arm.librw.emulation import Path, Expr
 
 class Rewriter():
     GCC_FUNCTIONS = [ # functions added by the compiler. No use in rewriting them
-        "_start",
+        # "_start",
         # "__libc_start_main",
         # "__libc_csu_fini",
         # "__libc_csu_init",
@@ -121,25 +121,22 @@ class Rewriter():
                 if function.name in Rewriter.GCC_FUNCTIONS:
                     continue
                 results.append("\t.text\n%s" % (function))
-                results.append(".ltorg")  # XXX: this is probably not necessary anymore
 
 
-        # XXX: 
-        // TODO 2021/07/09 15:25 -  
-        # XXX: 
-        # fai la stessa cosa di sopra
-        # con il for sulle section
-        results.append(".section .fake_text, \"ax\", @progbits")
-        results.append(".align 12")
-        results.append(".fake_text_start:")
-        last_addr = self.container.loader.elffile.get_section_by_name(".text")['sh_addr'] - 4
-        for faddr, function in sorted(self.container.functions.items()):
-            if function.name in Rewriter.GCC_FUNCTIONS:
-                continue
-            skip = function.start - last_addr - 4
-            if skip > 0: results.append(".skip 0x%x" % (skip))
-            last_addr = function.start
-            results.append("b .LC%x // %s" % (function.start, function.name))
+        # fake sections for trampolines
+        for section in self.container.codesections.values():
+            results.append(f".section .fake{section.name}, \"ax\", @progbits")
+            results.append(".align 12")
+            results.append(f".fake{section.name}_start:")
+            # last_addr = self.container.loader.elffile.get_section_by_name(".text")['sh_addr'] - 4
+            last_addr = section.base - 4
+            for faddr, function in sorted(self.container.functions.items()):
+                if function.name in Rewriter.GCC_FUNCTIONS:
+                    continue
+                skip = function.start - last_addr - 4
+                if skip > 0: results.append(".skip 0x%x" % (skip))
+                last_addr = function.start
+                results.append("b .LC%x // %s" % (function.start, function.name))
 
 
 
@@ -149,7 +146,7 @@ class Rewriter():
 
         if Rewriter.total_globals > 0:
             info(f"Saved {Rewriter.literal_saves} out of {Rewriter.total_globals} global accesses ({Rewriter.literal_saves / Rewriter.total_globals * 100}% )")
-            info(f"Out of {Rewriter.total_text} .text pointers, {Rewriter.impossible_text} cannot be saved (of which {Rewriter.impossible_text - Rewriter.trivial_text} are non-trivial, in total {(Rewriter.impossible_text - Rewriter.trivial_text) / Rewriter.total_globals * 100}%) ")
+            info(f"Out of {Rewriter.total_text} code pointers, {Rewriter.impossible_text} cannot be saved (of which {Rewriter.impossible_text - Rewriter.trivial_text} are non-trivial, in total {(Rewriter.impossible_text - Rewriter.trivial_text) / Rewriter.total_globals * 100}%) ")
         info(f"Success: retrowritten assembly to {self.outfile}")
 
 
@@ -278,8 +275,9 @@ class Symbolizer():
                 elif instruction.cs.operands[-1].type == CS_OP_REG: # br x0
                     function.possible_switches += [instruction.address]
                 if target:
-                    # Check if the target is in .text section.
-                    if any([container.is_in_section(x, target) for x in Rewriter.CODESECTIONS]):
+                    # Check if the target is in a code section.
+                    # we exclude .plt as it means it's a call to an imported function
+                    if any([container.is_in_section(x, target) for x in Rewriter.CODESECTIONS if x != ".plt"]):
                         function.bbstarts.add(target)
                         instruction.op_str = instruction.op_str.replace("#0x%x" % target, ".LC%x" % target)
                     elif target in container.plt:
@@ -581,9 +579,9 @@ class Symbolizer():
     def _adjust_adrp_section_pointer(self, container, secname, orig_off, instruction):
         assert instruction.mnemonic.startswith("adr")
         Rewriter.literal_saves += 1
-        if secname == ".text":  # special case as this is the only non-data section we need
-            secname = ".fake_text"
-            base = container.loader.elffile.get_section_by_name(".text")['sh_addr']
+        if secname in container.codesections:
+            base = container.codesections[secname].base
+            secname = f".fake{secname}"
         else:
             base = container.datasections[secname].base
         reg_name = instruction.reg_writes()[0]
@@ -673,6 +671,7 @@ class Symbolizer():
         ### this will be fixed with the .fake_text directly followed by .rodota
         ### mimicking the same section layout of the original binary
         ### when I get to implement heuristics-free global pointer constructions
+        ### XXX
         if text['sh_addr'] // 0x1000 == orig_off // 0x1000 or \
             text['sh_addr'] <= orig_off < text['sh_addr'] + text['sh_size'] - 0x320:
             possible_sections += ['.text']
@@ -796,7 +795,7 @@ class Symbolizer():
         debug(f"After resolving addresses, here are the possible sections: {possible_sections}")
         if len(possible_sections) == 1:
             secname = list(possible_sections)[0]
-            if secname not in [".text"]:
+            if secname not in container.codesections:
                 self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
                 debug(f"We're good, false alarm, the only possible section is: {secname}. Nice!")
                 return
