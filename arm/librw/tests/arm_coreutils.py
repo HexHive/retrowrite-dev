@@ -1,11 +1,10 @@
 from capstone import *
-from keystone import *
 from arm.librw.util.logging import *
 import subprocess
 import sys
 import os
 
-coreutils_path = os.path.expanduser("~/coreutils/src/")
+coreutils_path = os.path.expanduser("~/wares/coreutils/src/")
 test_bins = [
         ("ls",        [ "/etc", "/etc -la", "/home"]),
         ("od",        [ "/etc/passwd"]),

@@ -53,6 +53,16 @@ class Rewriter():
         "_ITM_registerTMCloneTable"
     ]
 
+    # these sections need to be completely regenerated from scracth
+    IGNORE_SECTIONS = [
+        ".dynsym",
+        ".dynstr",
+        ".dynamic",
+        ".eh_frame_hdr",
+        ".eh_frame",
+        ".rela.plt"
+    ]
+
     literal_saves = 0
     total_globals = 0
     total_text = 0
@@ -130,7 +140,8 @@ class Rewriter():
             results.append(f".fake{section.name}_start:")
             # last_addr = self.container.loader.elffile.get_section_by_name(".text")['sh_addr'] - 4
             last_addr = section.base - 4
-            for faddr, function in sorted(self.container.functions.items()):
+            for faddr in sorted(section.functions):
+                function = self.container.functions[faddr]
                 if function.name in Rewriter.GCC_FUNCTIONS:
                     continue
                 skip = function.start - last_addr - 4
@@ -285,6 +296,8 @@ class Symbolizer():
                         instruction.op_str = "{}".format(name)
                         if any(exit in name for exit in ["abort", "exit"]): #XXX: fix this ugly hack
                             function.nexts[inst_idx] = []
+                        if name == "__gmon_start__":
+                            instruction.before += [InstrumentedInstruction(".weak __gmon_start__")]
                     else:
                         critical("target outside code section. Aborting.")
                         exit(1)

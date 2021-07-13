@@ -171,7 +171,7 @@ if __name__ == "__main__":
         loader.load_data_sections(slist, krw.is_data_section)
     else:
         # loader.load_sections(slist, lambda x: x != ".text")
-        loader.load_sections(slist, lambda x: True)
+        loader.load_sections(slist, lambda x: x not in Rewriter.IGNORE_SECTIONS)
         # loader.load_data_sections(slist, lambda x: slist[x]['base'] > 0 and x not in ['.text','.plt','.init'] and ".note" not in x)
 
     flist = loader.flist_from_symtab()
