@@ -109,7 +109,7 @@ class Container():
             data = newsec.bytes
 
             section_offset = function.start - base
-            next_addr = fnlist[e+1][0] if e < len(fnlist) else faddr + 0x100
+            next_addr = fnlist[e+1][0] if e < len(fnlist)-1 else faddr + 0x100
             max_len = next_addr - faddr # this function can't go over the start of the next
 
             bytes = b""
