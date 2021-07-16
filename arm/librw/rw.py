@@ -685,18 +685,15 @@ class Symbolizer():
         ### mimicking the same section layout of the original binary
         ### when I get to implement heuristics-free global pointer constructions
         ### XXX
-        if text['sh_addr'] // 0x1000 == orig_off // 0x1000 or \
-            text['sh_addr'] <= orig_off < text['sh_addr'] + text['sh_size'] - 0x320:
-            possible_sections += ['.text']
+        # if text['sh_addr'] // 0x1000 == orig_off // 0x1000 or \
+            # text['sh_addr'] <= orig_off < text['sh_addr'] + text['sh_size'] - 0x320:
+            # possible_sections += ['.text']
 
         if len(possible_sections) == 1:
             secname = possible_sections[0]
             # even if it's text, we rewrite it
             self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
             return
-
-        if inst.address == 0x5fb4: 
-            import IPython; IPython.embed() 
 
         debug(f"Global access at {inst}, multiple sections possible: {possible_sections}, trying to resolve address...")
 
