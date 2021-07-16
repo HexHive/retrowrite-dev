@@ -98,7 +98,8 @@ class Container():
         # some functions (like register_tm_clones) report a size of 0
         # here we try to work around that
         # XXX: ideally all this code should be in loader.load_functions()
-        for _, function in self.functions.items():
+        fnlist = sorted(list(self.functions.items()))
+        for e, (faddr, function) in enumerate(fnlist):
             if function.sz > 0:  # this is not broken
                 continue
 
@@ -108,10 +109,12 @@ class Container():
             data = newsec.bytes
 
             section_offset = function.start - base
+            next_addr = fnlist[e+1][0] if e < len(fnlist) else faddr + 0x100
+            max_len = next_addr - faddr # this function can't go over the start of the next
+
             bytes = b""
-            for c in range(0, 0x100, 4):
+            for c in range(0, max_len, 4):
                 bytes += data[section_offset + c:section_offset + c + 4]
-                print(bytes[-4:], c, function.name)
                 # we declare the function to be big until the first ret
                 if bytes[-4:] == b"\xc0\x03\x5f\xd6": break
                 # special case for _start, there is no ret, as it ends on the call to abort
@@ -124,7 +127,7 @@ class Container():
                 # special case, only 2 instructions for those functions
                 if function.name in ["frame_dummy", "format_address_none"]:
                     if c == 4: break
-                        
+
             function.bytes = bytes
             function.sz = len(bytes)
 

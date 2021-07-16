@@ -60,7 +60,7 @@ class Rewriter():
         ".dynamic",
         ".eh_frame_hdr",
         ".eh_frame",
-        ".rela.plt"
+        ".rela.plt",
     ]
 
     literal_saves = 0
