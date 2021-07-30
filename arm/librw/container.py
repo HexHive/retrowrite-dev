@@ -144,6 +144,8 @@ class Container():
             section = self.codesections[secname]
         if secname in self.datasections:
             section = self.datasections[secname]
+        else:
+            return False
 
         if section.base <= value < section.base + section.sz:
             return True

@@ -61,6 +61,10 @@ class Rewriter():
         ".eh_frame_hdr",
         ".eh_frame",
         ".rela.plt",
+        ".gnu_version",
+        ".gnu.version",
+        ".gnu_version_r",
+        ".gnu.version_r",
     ]
 
     literal_saves = 0
@@ -673,6 +677,30 @@ class Symbolizer():
                 possible_sections += [name]
 
 
+
+        # WHAT TO DO
+        # so actually this was never implemented? Not sure. I vividly remember testing it though...
+        # well, now off to work!
+
+
+
+
+        # WHAT TO DO PART 2
+        # the .dynamic section is 16 bytes less than expected on cpugcc_r
+        # this is because .dynamic is made like this
+        # http://osr507doc.sco.com/en/topics/ELF_dynam_section.html
+        # the dependency that is missing is -lm
+
+        # part 3
+        # ok no to be honest you just need to pass the -lm flag
+        # to gcc and he will fix .dynamic for you
+        # now the only section that is "wobbly" is the .got.
+        # how are we gonna fix the got? Not sure lol
+
+
+
+
+
         text = container.text_section # check for .text, as it is not a datasection
         ### FIXME
         ### WARNING:
@@ -834,7 +862,6 @@ class Symbolizer():
         # As our last hope we try to ugly-hack-patch all instructions that use the register with the
         # global address loaded (instructions in the resolved_addresses list)
         debug(f"WARNING: trying to fix each instruction manually...")
-
 
         # we don't really want an ADRP in the middle of code, if possible
         # so we erase it 

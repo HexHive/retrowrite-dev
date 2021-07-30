@@ -76,7 +76,7 @@ class Loader():
         # A code section should be present in memory (SHF_ALLOC), and its size should
         # be greater than 0. 
         return (
-            sval['sz'] > 0 and
+            # sval['sz'] > 0 and # removed cause .init can have size 0
             (sval['flags'] & SH_FLAGS.SHF_ALLOC) != 0 and (
                 (sval['flags'] & SH_FLAGS.SHF_EXECINSTR) == 1 or sname not in Rewriter.DATASECTIONS
             ) 
