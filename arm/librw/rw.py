@@ -154,7 +154,10 @@ class Rewriter():
                 results.append("b .LC%x // %s" % (function.start, function.name))
 
 
-
+        # here we insert the list of dependencies of the elf,
+        # that the linker will need to know about through lflags
+        for dep in self.container.loader.dependencies:
+            results.append(f"// DEPENDENCY: {dep}")
 
         with open(self.outfile, 'w') as outfd:
             outfd.write("\n".join(results + ['']))
@@ -696,6 +699,7 @@ class Symbolizer():
         # to gcc and he will fix .dynamic for you
         # now the only section that is "wobbly" is the .got.
         # how are we gonna fix the got? Not sure lol
+        # also: work on linker 
 
 
 

@@ -21,6 +21,7 @@ class Loader():
         self.fd = open(fname, 'rb')
         self.elffile = ELFFile(self.fd)
         self.container = Container()
+        self.dependencies = self.parse_elf_dependencies()
         print(self.elffile['e_type'])
 
     def is_stripped(self):
@@ -258,3 +259,15 @@ class Loader():
                     })
 
         return global_list
+
+    def parse_elf_dependencies(self):
+        # here we parse the .dynamic and .dynstr to see what the dependencies
+        # of a binary are. Basically we do what ldd does, but worse.
+        # we do it by parsing .dynamic as outlined here
+        # https://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/dynamicsection.html
+        deps = []
+        dynamic = self.elffile.get_section_by_name(".dynamic")
+        for tag in dynamic.iter_tags("DT_NEEDED"):
+            info("Found dependency {}".format(tag.needed))
+            deps += [tag.needed]
+        return deps
