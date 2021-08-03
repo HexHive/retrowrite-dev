@@ -142,7 +142,7 @@ class Container():
     def is_in_section(self, secname, value):
         if secname in self.codesections:
             section = self.codesections[secname]
-        if secname in self.datasections:
+        elif secname in self.datasections:
             section = self.datasections[secname]
         else:
             return False

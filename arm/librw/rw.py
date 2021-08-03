@@ -168,11 +168,6 @@ class Rewriter():
         info(f"Success: retrowritten assembly to {self.outfile}")
 
 
-        with open("assemble.sh", "w") as f:
-            f.write("gcc od.s -lm -o od -Wl,--section-start=.rodata=0x0,--section-start=.init_array=0x100000,--section-start=.data.rel.ro=0x200000,--section-start=.bss=0x300000")
-        info("Assembling instructions written to assemble.sh. Please run 'bash assemble.sh'")
-
-
 class Symbolizer():
     def __init__(self):
         self.bases = set()
@@ -306,6 +301,8 @@ class Symbolizer():
                         if name == "__gmon_start__":
                             instruction.before += [InstrumentedInstruction(".weak __gmon_start__")]
                     else:
+                        print(hex(target))
+                        print(instruction)
                         critical("target outside code section. Aborting.")
                         exit(1)
                         gotent = container.is_target_gotplt(target)
@@ -689,17 +686,11 @@ class Symbolizer():
 
 
         # WHAT TO DO PART 2
-        # the .dynamic section is 16 bytes less than expected on cpugcc_r
-        # this is because .dynamic is made like this
-        # http://osr507doc.sco.com/en/topics/ELF_dynam_section.html
-        # the dependency that is missing is -lm
-
         # part 3
         # ok no to be honest you just need to pass the -lm flag
         # to gcc and he will fix .dynamic for you
         # now the only section that is "wobbly" is the .got.
         # how are we gonna fix the got? Not sure lol
-        # also: work on linker 
 
 
 

@@ -77,15 +77,45 @@ def asank(rw, loader, args):
                         except ValueError:
                             addr = k
                         fn.analysis[key][addr] = v
-
     return rw
+
+def assemble(filename, outfile):
+    size = os.stat(filename).st_size
+    f = open(filename, 'r')
+    f.seek(size - 1024) # we store metadata only at the end
+                        # no need to read the whole file
+    deps = []
+    last_lines = f.readlines()
+    for line in last_lines:
+        if "DEPENDENCY:" in line:
+            deps += [line.split(": ")[1]]
+
+    print("Will link with the following dependencies:")
+    print("".join(deps))
+
+    lflags = []
+    for d in deps:
+        lflags += ["-l" + d.split(".")[0].split("lib")[1]]
+    lflags = " ".join(lflags)
+
+    print("Assembling...")
+    asmline = f"gcc {filename} -pie -nostartfiles {lflags} -o {outfile}"
+    print(asmline)
+    os.system(asmline) # TODO: check exit code
+    print("Done!")
+
+
+
 if __name__ == "__main__":
     argp = argparse.ArgumentParser(description='Process some integers.')
 
     argp.add_argument("bin", type=str, help="Input binary to load")
     argp.add_argument("outfile", type=str, help="Symbolized ASM output")
 
-    argp.add_argument("-a", "--asan", action='store_true',
+    argp.add_argument("-a", "--assemble", action='store_true',
+                      help="Assemble instrumented assembly file into instrumented binary")
+
+    argp.add_argument("-A", "--asan", action='store_true',
                       help="Add binary address sanitizer instrumentation")
     # python3 -m rwtools.asan.asantool /bin/ls ls-basan-instrumented
 
@@ -112,6 +142,10 @@ if __name__ == "__main__":
     argp.set_defaults(ignore_stripped=False)
 
     args = argp.parse_args()
+
+    if args.assemble:
+        assemble(args.bin, args.outfile)
+        exit(0)
 
     rwtools_path = "rwtools."
 
