@@ -103,7 +103,8 @@ class Loader():
                     [0x0 for _ in range(0, sval['sz'] - len(more))])
 
             bytes = more
-            print("Adding section: ", sec, hex(sval["base"]), "with size", hex(sval['sz']))
+            print("Adding section: ", sec, hex(sval["base"]), "with size", hex(sval['sz']),
+                  "with align ", sval['align'])
             sec = sec.replace("-","_")
             ds = Section(sec, sval["base"], sval["sz"], bytes,
                              (sval['align']))

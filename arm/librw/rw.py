@@ -123,7 +123,7 @@ class Rewriter():
 
         for section in self.container.codesections.values():
             results.append(f".section {section.name}")
-            results.append(".align 16")
+            # results.append(f".align {section.align}") # removed to better fit sections
             data = section.bytes
             last_addr = base = section.base
             for faddr in sorted(section.functions):
@@ -609,9 +609,13 @@ class Symbolizer():
         # "got_start" label so that we keep track of where the "old" got section was
         pages = (abs(diff) // 4096) * 4096
         instruction.instrument_before(InstrumentedInstruction(f"\tadrp {reg_name}, ({secname} {op} {pages})"))
+        instruction.instrument_before(InstrumentedInstruction(f"\tadd {reg_name}, {reg_name}, :lo12:{secname}"))
         instruction.mnemonic = "add" if op == "+" else "sub"
         instruction.op_str = "%s, %s, %s"  % (reg_name, reg_name, abs(diff) % 4096)
-        instruction.instrumented = True
+        # trying to get it shorter, does not work
+        # instruction.mnemonic = "add"
+        # instruction.op_str = f"{reg_name}, {reg_name}, (:lo12:{secname} {op} {abs(diff)%4096})"
+        # instruction.instrumented = True
 
 
     def _get_resolved_address(self, function, inst, inst2, path):
@@ -691,6 +695,15 @@ class Symbolizer():
         # to gcc and he will fix .dynamic for you
         # now the only section that is "wobbly" is the .got.
         # how are we gonna fix the got? Not sure lol
+
+        # WHAT TO DO PART 3
+        # updates from the .got: it's the relocations baby
+        # is it unsolvable? not sure
+        # also I get crashes bc I removed the minimum alignment of 12
+
+        # WHAT TO DO 4
+        # adrp has now become 3 instructions, it sucks, but I think I can 
+        # do better. let's now try fixing the .got
 
 
 

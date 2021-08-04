@@ -43,7 +43,6 @@ class Container():
         self.gotplt_entries = list()
 
     def add_function(self, function):
-        print("Adding ", function.name, " at addr ", function.start)
         if function.name in self.function_names:
             function.name = "%s_%x" % (function.name, function.start)
         self.functions[function.start] = function
@@ -683,7 +682,7 @@ class Section():
         self.bytes = bytes
         self.relocations = list()
         self.functions = list()  # list of addrs of functions that are in this section
-        self.align = max(12, min(16, align))  # we want to be _at least_ page aligned
+        self.align = min(16, align)
         self.named_globals = defaultdict(list)
         self.flags = f", \"{flags}\"" if len(flags) else ""
 
