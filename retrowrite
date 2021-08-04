@@ -95,6 +95,7 @@ def assemble(filename, outfile):
 
     lflags = []
     for d in deps:
+        if "ld-linux" in d: continue
         lflags += ["-l" + d.split(".")[0].split("lib")[1]]
     lflags = " ".join(lflags)
 

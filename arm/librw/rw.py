@@ -72,6 +72,7 @@ class Rewriter():
     total_text = 0
     impossible_text = 0
     trivial_text = 0
+    total_deleted_from_got = 0
 
 
     # DATASECTIONS = [".rodata", ".data", ".bss", ".data.rel.ro", ".init_array"]
@@ -96,8 +97,8 @@ class Rewriter():
 
     def symbolize(self):
         symb = Symbolizer()
-        symb.symbolize_text_section(self.container, None)
         symb.symbolize_data_sections(self.container, None)
+        symb.symbolize_text_section(self.container, None)
 
     def dump(self):
         # we fix stuff that gets broken by too much instrumentation added,
@@ -140,7 +141,7 @@ class Rewriter():
         # fake sections for trampolines
         for section in self.container.codesections.values():
             results.append(f".section .fake{section.name}, \"ax\", @progbits")
-            results.append(".align 12")
+            # results.append(".align 12") # removed to better fit sections
             results.append(f".fake{section.name}_start:")
             # last_addr = self.container.loader.elffile.get_section_by_name(".text")['sh_addr'] - 4
             last_addr = section.base - 4
@@ -168,6 +169,7 @@ class Rewriter():
         info(f"Success: retrowritten assembly to {self.outfile}")
 
 
+# old, needed section alignment
 class Symbolizer():
     def __init__(self):
         self.bases = set()
@@ -599,6 +601,9 @@ class Symbolizer():
         if secname in container.codesections:
             base = container.codesections[secname].base
             secname = f".fake{secname}"
+        elif secname == ".got":
+            # the compiler will add stuff at the start of .got, need to take that into account
+            base = container.datasections['.got'].base + Rewriter.total_deleted_from_got
         else:
             base = container.datasections[secname].base
         reg_name = instruction.reg_writes()[0]
@@ -705,6 +710,11 @@ class Symbolizer():
         # adrp has now become 3 instructions, it sucks, but I think I can 
         # do better. let's now try fixing the .got
 
+        # WHAT TO DO 4
+        # .got is basically done! amazing job. 
+        # it is a super bad hack though
+        # on the test binary there is still some difference in the size
+        # of .dynamic sections. Need to look into that.
 
 
 
@@ -1018,6 +1028,7 @@ class Symbolizer():
 
     def _handle_relocation(self, container, section, rel):
         reloc_type = rel['type']
+        # critical(f"{rel['name']} at {hex(rel['offset'])}")
         # elif reloc_type == ENUM_RELOC_TYPE_x64["R_X86_64_RELATIVE"]:
         if reloc_type == ENUM_RELOC_TYPE_AARCH64["R_AARCH64_RELATIVE"]:
             value = rel['addend']
@@ -1038,11 +1049,37 @@ class Symbolizer():
             print("[*] Unhandled relocation {}".format(
                 describe_reloc_type(reloc_type, container.loader.elffile)))
 
+    def fix_got_section(self, container):
+        # gcc will add some stuff to the .got that is already there
+        # we want to keep the same size of the .got so here we remove
+        # the stuff gcc will add back (relocations, mostly)
+
+        # delete first three entries of .got, it does not seem we need to keep them
+        gotsec = container.datasections['.got']
+        gotsec.delete(0, 8*3) 
+        # we now remove the entries of the got relative to all imports
+        for rel in container.relocations['.plt']:
+            if rel['type'] == ENUM_RELOC_TYPE_AARCH64["R_AARCH64_JUMP_SLOT"]:
+                gotsec.delete(rel['offset'] - gotsec.base, 8)
+                Rewriter.total_deleted_from_got += 8
+        symtab = container.loader.elffile.get_section_by_name(".symtab")
+        # this symbol needs to be removed as gcc adds it back 
+        # (stores the address of the .dynamic section)
+        dyntable = symtab.get_symbol_by_name("_GLOBAL_OFFSET_TABLE_")
+        if len(dyntable) == 1:
+            gotsec.delete(dyntable[0]['st_value'] - gotsec.base, 8)
+
+        Rewriter.total_deleted_from_got += 4*8
+
+
+
     def symbolize_data_sections(self, container, context=None):
         # Section specific relocation
         for secname, section in container.datasections.items():
             for rel in section.relocations:
                 self._handle_relocation(container, section, rel)
+
+        self.fix_got_section(container)
 
         # .dyn relocations
         dyn = container.relocations[".dyn"]

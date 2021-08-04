@@ -691,6 +691,10 @@ class Section():
         for byte in self.bytes:
             self.cache.append(DataCell(byte, 1))
 
+    def delete(self, offset, length):
+        for cell in self.cache[offset:offset+length]:
+            cell.set_ignored()
+
     def add_relocations(self, relocations):
         self.relocations.extend(relocations)
 
@@ -782,14 +786,13 @@ class Section():
 
         results = []
         results.append(".section {}".format(newsecname))
-        # results.append(".section {} {}".format(self.name, self.flags))
 
         # this is a way to evade relocation hell.
         # see the comment in _adjust_adrp_section_pointer() for more
         results.append("{}_start:".format(self.name))
 
-        if self.name != ".fini_array":
-            results.append(".align {}".format(self.align))
+        # if self.name != ".fini_array":
+            # results.append(".align {}".format(self.align)) # removed alignment for better compatibility with original binary
 
         location = self.base
         valid_cells = False
