@@ -135,7 +135,7 @@ class Rewriter():
                 last_addr = faddr + function.sz
                 if function.name in Rewriter.GCC_FUNCTIONS:
                     continue
-                results.append("\t.text\n%s" % (function))
+                results.append("%s" % (function))
 
 
         # fake sections for trampolines
@@ -710,7 +710,7 @@ class Symbolizer():
         # adrp has now become 3 instructions, it sucks, but I think I can 
         # do better. let's now try fixing the .got
 
-        # WHAT TO DO 4
+        # WHAT TO DO 5
         # .got is basically done! amazing job. 
         # it is a super bad hack though
         # on the test binary there is still some difference in the size

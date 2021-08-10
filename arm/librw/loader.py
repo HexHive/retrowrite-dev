@@ -54,7 +54,7 @@ class Loader():
             bytes = data[section_offset:section_offset + fvalue["sz"]]
 
             fixed_name = fvalue["name"].replace("@", "_")
-            bind = fvalue["bind"] if fixed_name != "main" else "STB_GLOBAL" #main should always be global
+            bind = fvalue["bind"] if fixed_name not in ["main", "_init"] else "STB_GLOBAL" #main and _init should always be global
             function = Function(fixed_name, faddr, fvalue["sz"], bytes, bind)
             self.container.add_function(function)
         # entrypoint = self.elffile.header.e_entry
@@ -195,9 +195,6 @@ class Loader():
                 continue
 
             for symbol in section.iter_symbols():
-                if symbol['st_other']['visibility'] == "STV_HIDDEN":
-                    continue
-
                 if (symbol['st_info']['type'] == 'STT_FUNC'
                         and symbol['st_shndx'] != 'SHN_UNDEF'):
                     function_list[symbol['st_value']] = {

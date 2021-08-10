@@ -102,6 +102,7 @@ class Container():
             if function.sz > 0:  # this is not broken
                 continue
 
+
             newsec = self.section_of_address(function.start)
             # newsec.functions += [function.start]
             base = newsec.base
@@ -541,7 +542,6 @@ class Function():
 
 
     def __str__(self):
-        print(self.name)
         assert self.cache, "Function not disassembled!"
 
         results = []
