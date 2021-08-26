@@ -95,6 +95,8 @@ class Path:
             return
         if instr.mnemonic in ["tbl", "dup"]: #skip vector instructions
             return
+        if instr.mnemonic in ["csinv", "dup"]: #skip comparison based instructions
+            return
 
 
         ops = instr.cs.operands

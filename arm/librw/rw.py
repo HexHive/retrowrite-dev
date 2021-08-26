@@ -664,8 +664,9 @@ class Symbolizer():
         if len(possible_sections) == 1:
             secname = possible_sections[0]
             # even if it's text, we rewrite it
-            self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
-            return
+            if secname not in [".text"]:
+                self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+                return
 
         if inst.address == 0x5fb4: 
             import IPython; IPython.embed() 
@@ -791,10 +792,10 @@ class Symbolizer():
                 self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
                 debug(f"We're good, false alarm, the only possible section is: {secname}. Nice!")
                 return
-            else: #XXX: remove this else case!!!!
-                print("OMGGGGGGGGGGGGGGGG" , inst.address)
-                self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
-                return
+            # else: #XXX: remove this else case!!!!
+                # print("OMGGGGGGGGGGGGGGGG" , inst.address)
+                # self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+                # return
                 # Rewriter.total_text += 1
                 # no_func = 0
                 # for _, functiona in container.functions.items():
