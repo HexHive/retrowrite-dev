@@ -616,7 +616,7 @@ class Symbolizer():
         instruction.instrument_before(InstrumentedInstruction(f"\tadrp {reg_name}, ({secname} {op} {pages})"))
         instruction.instrument_before(InstrumentedInstruction(f"\tadd {reg_name}, {reg_name}, :lo12:{secname}"))
         instruction.mnemonic = "add" if op == "+" else "sub"
-        instruction.op_str = "%s, %s, %s"  % (reg_name, reg_name, abs(diff) % 4096)
+        instruction.op_str = "%s, %s, %s"  % (reg_name, reg_name, hex(abs(diff) % 4096))
         # trying to get it shorter, does not work
         # instruction.mnemonic = "add"
         # instruction.op_str = f"{reg_name}, {reg_name}, (:lo12:{secname} {op} {abs(diff)%4096})"
@@ -680,7 +680,7 @@ class Symbolizer():
         orig_reg = inst.reg_writes()[0]
 
         possible_sections = []
-        for name,s in container.datasections.items():
+        for name,s in list(container.datasections.items()) + list(container.codesections.items()):
             if s.base // 0x1000 == orig_off // 0x1000 or \
                s.base <= orig_off < s.base + s.sz:
                 possible_sections += [name]
@@ -716,7 +716,20 @@ class Symbolizer():
         # on the test binary there is still some difference in the size
         # of .dynamic sections. Need to look into that.
 
+        # WHAT TO DO 6
+        # Now .dynamic is also done! YES
+        # All that's left is to now enable across-section pointer
+        # constructions and debug them until they work 
+        # Still need to look into the adrp being 3 instructions though
 
+        # WHAT TO DO 7
+        # this is broken
+        # the removal of symbol _GLOBAL_OFFSET_TABLE_ was not a good strategy
+        # as gcc adds it back BUT IN THE WRONG PLACE, so stuff in .got is offset
+        # lmao
+        # allora aggiungere un .quad 0 all'inizio della got_start funziona
+        # aggiusta i pointer ma c'e' il problema che ora la size della .got
+        # e' sbagliata
 
 
         text = container.text_section # check for .text, as it is not a datasection
@@ -735,10 +748,27 @@ class Symbolizer():
             # text['sh_addr'] <= orig_off < text['sh_addr'] + text['sh_size'] - 0x320:
             # possible_sections += ['.text']
 
+        if len(possible_sections) == 0:
+            critical(f"No possible section found for {inst}. Aborting")
+            exit(1)
+
         if len(possible_sections) == 1:
             secname = possible_sections[0]
             # even if it's text, we rewrite it
             self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+            return
+
+        if possible_sections[0] == '.data' and possible_sections[1] == '.bss':
+            self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
+            return
+
+        if possible_sections[0] == '.rodata' and possible_sections[1] == '.text' and possible_sections[2] == '.fini':
+            self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
+            return
+
+        if possible_sections == ['.init_array', '.fini_array', '.data.rel.ro', '.got']:
+            debug(f"Skipping shit at {hex(inst.address)}")
+            self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
             return
 
         debug(f"Global access at {inst}, multiple sections possible: {possible_sections}, trying to resolve address...")
