@@ -33,6 +33,9 @@ class Instrument():
         self.globalrz_sz = globalrz_sz
         self.global_count = 0
 
+        # need to add it as the first dependency of the binary
+        self.rewriter.container.loader.dependencies.insert(0, "libasan.so")
+
         # Get the register map
         aarch64 = ArchAArch64()
         self.regmap = defaultdict(lambda: defaultdict(dict))
@@ -53,6 +56,7 @@ class Instrument():
 
     def instrument_init_array(self):
         #XXX: yet todo
+        # this one is old version for x86, needs to be converted
         section = self.rewriter.container.sections[".init_array"]
         constructor = DataCell.instrumented(".quad {}".format(sp.ASAN_INIT_FN),
                                             8)
@@ -623,11 +627,11 @@ class Instrument():
                 fn.cache.insert(idx + code[0], code[1])
 
     def do_instrument(self):
-        #self.instrument_globals()
+        # #self.instrument_globals()
         self.instrument_mem_accesses()
 
         #XXX: 
-        assert(False, ".init_array needs to be instrumented")
+        # assert(False, ".init_array needs to be instrumented")
 
         #XXX: ARM, fix those two functions
         # self.instrument_stack()

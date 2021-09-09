@@ -752,24 +752,27 @@ class Symbolizer():
             critical(f"No possible section found for {inst}. Aborting")
             exit(1)
 
-        if len(possible_sections) == 1:
-            secname = possible_sections[0]
-            # even if it's text, we rewrite it
-            self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
-            return
+        self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
+        return
 
-        if possible_sections[0] == '.data' and possible_sections[1] == '.bss':
-            self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
-            return
+        # if len(possible_sections) == 1:
+            # secname = possible_sections[0]
+            # # even if it's text, we rewrite it
+            # self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+            # return
 
-        if possible_sections[0] == '.rodata' and possible_sections[1] == '.text' and possible_sections[2] == '.fini':
-            self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
-            return
+        # if possible_sections[0] == '.data' and possible_sections[1] == '.bss':
+            # self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
+            # return
 
-        if possible_sections == ['.init_array', '.fini_array', '.data.rel.ro', '.got']:
-            debug(f"Skipping shit at {hex(inst.address)}")
-            self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
-            return
+        # if possible_sections[0] == '.rodata' and possible_sections[1] == '.text' and possible_sections[2] == '.fini':
+            # self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
+            # return
+
+        # if possible_sections == ['.init_array', '.fini_array', '.data.rel.ro', '.got']:
+            # debug(f"Skipping shit at {hex(inst.address)}")
+            # self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
+            # return
 
         debug(f"Global access at {inst}, multiple sections possible: {possible_sections}, trying to resolve address...")
 
