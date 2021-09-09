@@ -105,6 +105,50 @@ def assemble(filename, outfile):
     os.system(asmline) # TODO: check exit code
     print("Done!")
 
+    # this is only for ARM!
+    # fix _GLOBAL_OFFSET_TABLE
+    from elftools.elf.elffile import ELFFile
+    from elftools.elf.sections import SymbolTableSection
+    from elftools.elf.relocation import RelocationSection
+    with open(f"{outfile}", "rb") as f:
+        elffile = ELFFile(f)
+        got = elffile.get_section_by_name(".got")
+        symtab = elffile.get_section_by_name(".symtab")
+        gottable = symtab.get_symbol_by_name("_GLOBAL_OFFSET_TABLE_")[0]['st_value']
+        print(f"_GLOBAL_OFFSET_TABLE_ at {hex(gottable)}")
+        got_start = symtab.get_symbol_by_name(".got_start")[0]['st_value']
+        print(f".got_start at {hex(got_start)}, real got start at {hex(got['sh_addr'])}")
+
+        virtual_got_start = got['sh_addr']
+        phy_got_start = got['sh_offset']
+        def phyaddr(addr):
+            return phy_got_start + (addr - virtual_got_start)
+
+        # read the value of the two fields
+        f.seek(phyaddr(gottable))
+        gottable_value = f.read(8)
+
+        sz = got['sh_size'] - (got_start - virtual_got_start)
+        f.seek(phyaddr(got_start))
+        got_start_value = f.read(sz - 8)
+        print("size", sz)
+
+        print(f"gottable {hex(int.from_bytes(gottable_value, 'little'))}")
+        f.seek(0)
+        data = f.read()
+
+    with open(f"{outfile}", "w+b") as ff:
+        # switch them
+        ff.seek(0)
+        ff.write(data)
+        ff.seek(phyaddr(got_start))
+        ff.write(gottable_value)
+        ff.seek(phyaddr(got_start + 8))
+        ff.write(got_start_value)
+
+    
+
+
 
 
 if __name__ == "__main__":
