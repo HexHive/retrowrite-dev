@@ -8,6 +8,7 @@ import os
 import sys
 import traceback
 import importlib
+from elftools.elf.elffile import ELFFile
 
 def load_analysis_cache(loader, outfile):
     with open(outfile + ".analysis_cache") as fd:
@@ -79,6 +80,81 @@ def asank(rw, loader, args):
                         fn.analysis[key][addr] = v
     return rw
 
+def fix_got_post_assembly(outfile):
+    # this is only for ARM!
+    # fix _GLOBAL_OFFSET_TABLE
+    # _GLOBAL_OFFSET_TABLE_ is inserted by the link at the wrong place
+    # (in the middle of .got instead of at the end) bc we don't link against startfiles anymore (crts)
+    # so we need to do the following things:
+    # 1. shift data in .got to put the _GLOBAL_OFFSET_TABLE_ in the right place
+    # 2. since data was moved by 8 bytes, fix relocation offsets of all data that was moved
+    # 3. we would need to move also the _GLOBAL_OFFSET_TABLE_ symbol (as it is incorrect after the
+    #   move). but binaries look like they work even without moving the symbol. So this is not implemented yet.
+
+    from elftools.elf.relocation import RelocationHandler, RelocationSection
+    with open(f"{outfile}", "rb") as f:
+        elffile = ELFFile(f)
+        got = elffile.get_section_by_name(".got")
+        symtab = elffile.get_section_by_name(".symtab")
+        gottable = symtab.get_symbol_by_name("_GLOBAL_OFFSET_TABLE_")[0]['st_value']
+        original_got_start = symtab.get_symbol_by_name(".got_start")[0]['st_value']
+        print(f"_GLOBAL_OFFSET_TABLE_ at {hex(gottable)}")
+        print(f".got_start at {hex(original_got_start)}, real got start at {hex(got['sh_addr'])}")
+
+        virtual_got_start = got['sh_addr']
+        virtual_got_end = virtual_got_start + got['sh_size']
+        phy_got_start = got['sh_offset']
+        phy_got_end = phy_got_start + got['sh_size']
+        def phyaddr(addr):
+            return phy_got_start + (addr - virtual_got_start)
+
+        # read the value of the two fields
+        f.seek(phyaddr(gottable))
+        gottable_value = f.read(8)
+
+        sz = got['sh_size'] - (original_got_start - virtual_got_start)
+        f.seek(phyaddr(original_got_start))
+        got_start_value = f.read(sz - 8)
+        print("size", sz)
+
+        print(f"gottable {hex(int.from_bytes(gottable_value, 'little'))}")
+        f.seek(0)
+        data = f.read()
+
+        # look for relocations in .got affected by the change
+        rel_to_change = []
+        for section in elffile.iter_sections():
+            if not isinstance(section, RelocationSection):
+                continue
+
+            # data = section.data()
+            f.seek(section['sh_offset'])
+            reldata = f.read(section['sh_size'])
+            reldata = [reldata[i:i+8] for i in range(0, len(reldata), 8)]
+
+            for e,x in enumerate(reldata[::3]):
+                rel_addr = int.from_bytes(x, 'little')
+                if original_got_start <= rel_addr <= virtual_got_end or \
+                   phy_got_start <= rel_addr <= phy_got_end:
+                    phy_addr = section['sh_offset'] + e*24
+                    rel_to_change += [(phy_addr, rel_addr)]
+
+    with open(f"{outfile}", "w+b") as ff:
+        # switch them
+        ff.seek(0)
+        ff.write(data)
+        ff.seek(phyaddr(original_got_start))
+        ff.write(gottable_value)
+        ff.seek(phyaddr(original_got_start + 8))
+        ff.write(got_start_value)
+
+        # fix up relocations 
+        for addr, value in rel_to_change:
+            print(f"changing reloc at {hex(addr)} from {hex(value)} to {hex(value+8)}")
+            ff.seek(addr)
+            ff.write((value+8).to_bytes(8, byteorder='little'))
+
+
 def assemble(filename, outfile):
     size = os.stat(filename).st_size
     f = open(filename, 'r')
@@ -105,48 +181,10 @@ def assemble(filename, outfile):
     os.system(asmline) # TODO: check exit code
     print("Done!")
 
-    # this is only for ARM!
-    # fix _GLOBAL_OFFSET_TABLE
-    from elftools.elf.elffile import ELFFile
-    from elftools.elf.sections import SymbolTableSection
-    from elftools.elf.relocation import RelocationSection
-    with open(f"{outfile}", "rb") as f:
-        elffile = ELFFile(f)
-        got = elffile.get_section_by_name(".got")
-        symtab = elffile.get_section_by_name(".symtab")
-        gottable = symtab.get_symbol_by_name("_GLOBAL_OFFSET_TABLE_")[0]['st_value']
-        print(f"_GLOBAL_OFFSET_TABLE_ at {hex(gottable)}")
-        got_start = symtab.get_symbol_by_name(".got_start")[0]['st_value']
-        print(f".got_start at {hex(got_start)}, real got start at {hex(got['sh_addr'])}")
+    # only for ARM:
+    if ELFFile(open(outfile, "rb")).get_machine_arch() == "AArch64":
+        fix_got_post_assembly(outfile)
 
-        virtual_got_start = got['sh_addr']
-        phy_got_start = got['sh_offset']
-        def phyaddr(addr):
-            return phy_got_start + (addr - virtual_got_start)
-
-        # read the value of the two fields
-        f.seek(phyaddr(gottable))
-        gottable_value = f.read(8)
-
-        sz = got['sh_size'] - (got_start - virtual_got_start)
-        f.seek(phyaddr(got_start))
-        got_start_value = f.read(sz - 8)
-        print("size", sz)
-
-        print(f"gottable {hex(int.from_bytes(gottable_value, 'little'))}")
-        f.seek(0)
-        data = f.read()
-
-    with open(f"{outfile}", "w+b") as ff:
-        # switch them
-        ff.seek(0)
-        ff.write(data)
-        ff.seek(phyaddr(got_start))
-        ff.write(gottable_value)
-        ff.seek(phyaddr(got_start + 8))
-        ff.write(got_start_value)
-
-    
 
 
 
@@ -192,12 +230,10 @@ if __name__ == "__main__":
         assemble(args.bin, args.outfile)
         exit(0)
 
-    rwtools_path = "rwtools."
-
-    from elftools.elf.elffile import ELFFile
     elffile = ELFFile(open(args.bin, "rb"))
     arch = elffile.get_machine_arch()
 
+    rwtools_path = "rwtools."
 
     if arch == "AArch64":
         from arm.librw.rw import Rewriter
