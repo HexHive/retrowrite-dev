@@ -120,6 +120,11 @@ class Rewriter():
                 self.container.datasections.items(), key=lambda x: x[1].base):
             results.append("%s" % (section))
 
+        results = list()
+        for sec, section in sorted(
+                self.container.datasections.items(), key=lambda x: x[1].base):
+            results.append("%s" % (section))
+
 
 
         for section in self.container.codesections.values():
@@ -732,6 +737,20 @@ class Symbolizer():
         # e' sbagliata
 
 
+        # WHAT TO DO 8
+        # everything is super broken
+        # need to scratch previous solution
+        # lmao
+        # now need to use fake_got, fake_bss, and so on
+        # need to do:
+        # 1. append original section address information at the end of assembly file
+        # 2. parse them and append linker flags to gcc in retrowrite -a
+        # 3. Re-enable cross section pointer constructions (now disabled) 
+
+
+
+
+
         text = container.text_section # check for .text, as it is not a datasection
         ### FIXME
         ### WARNING:
@@ -752,14 +771,14 @@ class Symbolizer():
             critical(f"No possible section found for {inst}. Aborting")
             exit(1)
 
-        self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
-        return
+        # self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
+        # return
 
-        # if len(possible_sections) == 1:
-            # secname = possible_sections[0]
-            # # even if it's text, we rewrite it
-            # self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
-            # return
+        if len(possible_sections) == 1:
+            secname = possible_sections[0]
+            # even if it's text, we rewrite it
+            self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+            return
 
         # if possible_sections[0] == '.data' and possible_sections[1] == '.bss':
             # self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)

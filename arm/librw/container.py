@@ -769,10 +769,10 @@ class Section():
                 ".fake_text": "ax",
         }
         newsecs = {
-                # ".got":".goat",
-                # ".bss":".bullshit_section",
-                # ".data":".dota",
-                # ".rodata":".rodota",
+                ".got":".fake_got",
+                ".bss":".fake_bss",
+                ".data":".fake_data",
+                ".rodata":".fake_rodata",
         }
 
         newsecname = ""

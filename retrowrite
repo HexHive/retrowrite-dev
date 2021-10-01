@@ -182,8 +182,8 @@ def assemble(filename, outfile):
     print("Done!")
 
     # only for ARM:
-    if ELFFile(open(outfile, "rb")).get_machine_arch() == "AArch64":
-        fix_got_post_assembly(outfile)
+    # if ELFFile(open(outfile, "rb")).get_machine_arch() == "AArch64":
+        # fix_got_post_assembly(outfile)
 
 
 
