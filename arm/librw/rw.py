@@ -12,8 +12,9 @@ from elftools.elf.enums import ENUM_RELOC_TYPE_AARCH64
 
 from arm.librw.util.logging import *
 from arm.librw.util.arm_util import _is_jump_conditional, is_reg_32bits, get_64bits_reg, memory_replace, get_access_size_arm
-from arm.librw.container import InstrumentedInstruction, Jumptable
+from arm.librw.container import InstrumentedInstruction, Jumptable, NEWSECS
 from arm.librw.emulation import Path, Expr
+
 
 
 class Rewriter():
@@ -61,6 +62,7 @@ class Rewriter():
         ".eh_frame_hdr",
         ".eh_frame",
         ".rela.plt",
+        ".rela.dyn",
         ".gnu_version",
         ".gnu.version",
         ".gnu_version_r",
@@ -215,6 +217,20 @@ class Rewriter():
         # that the linker will need to know about through lflags
         for dep in self.container.loader.dependencies:
             results.append(f"// DEPENDENCY: {dep}")
+
+        # here we insert the list of the original addresses of the sections
+        # so that we keep them the same during linking and reproduce the virtual layout
+        running = 0x10000000
+        for sec in self.container.datasections.values():
+            if sec.name in NEWSECS:
+                name = NEWSECS[sec.name]
+                base = sec.base + running
+                results.append(f"// SECTION: {name} - {hex(base)}")
+        for sec in self.container.codesections.values():
+            name = ".fake" + sec.name
+            base = sec.base + running
+            results.append(f"// SECTION: {name} - {hex(base)}")
+
 
         with open(self.outfile, 'w') as outfd:
             outfd.write("\n".join(results + ['']))

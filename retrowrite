@@ -160,14 +160,20 @@ def assemble(filename, outfile):
     f = open(filename, 'r')
     f.seek(size - 1024) # we store metadata only at the end
                         # no need to read the whole file
-    deps = []
+    deps, secs = [], {}
     last_lines = f.readlines()
     for line in last_lines:
         if "DEPENDENCY:" in line:
             deps += [line.split(": ")[1]]
+        if "SECTION:" in line:
+            name, addr = line.split(": ")[1].split(" - ")
+            secs[name] = addr.strip()
 
     print("Will link with the following dependencies:")
     print("".join(deps))
+
+    print("Will link with the following sections:")
+    print(secs)
 
     lflags = []
     for d in deps:
@@ -175,8 +181,14 @@ def assemble(filename, outfile):
         lflags += ["-l" + d.split(".")[0].split("lib")[1]]
     lflags = " ".join(lflags)
 
+    wlflags = []
+    for sec, addr in secs.items():
+        wlflags += ["--section-start="+sec+"="+addr]
+    wlflags = "-Wl," + ",".join(wlflags)
+    wlflags += ",--no-check-sections"
+
     print("Assembling...")
-    asmline = f"gcc {filename} -pie -nostartfiles {lflags} -o {outfile}"
+    asmline = f"gcc {filename} -pie -nostartfiles {lflags} {wlflags} -o {outfile}"
     print(asmline)
     os.system(asmline) # TODO: check exit code
     print("Done!")
