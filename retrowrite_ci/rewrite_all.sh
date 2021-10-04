@@ -27,27 +27,27 @@ for binary_full in ~/bins/*; do
 		./retrowrite --asan $binary_full bins_rw/prova_${binary}.s
 
 		echo "assembling ${binary}.s ..."
-		gcc bins_rw/prova_${binary}.s -nostartfiles -lm -fsanitize=address -o bins_rw/${binary}_rw && echo Done
+		./retrowrite -a bins_rw/prova_${binary}.s bins_rw/${binary}_rw && echo Done
 
 	elif [[ $1 == "counter" ]]; then
 		echo "rewriting ${binary}.s ..."
 		./retrowrite -m counter $binary_full bins_rw/prova_${binary}.s
 
 		echo "assembling ${binary}.s ..."
-		gcc bins_rw/prova_${binary}.s -nostartfiles -lm -o bins_rw/${binary}_rw && echo Done
+		./retrowrite -a bins_rw/prova_${binary}.s bins_rw/${binary}_rw && echo Done
 
 	elif [[ $1 == "asan_trampoline" ]]; then
 		echo "rewriting ${binary}.s ..."
 		./retrowrite -m asan_trampoline $binary_full bins_rw/prova_${binary}.s
 
 		echo "assembling ${binary}.s ..."
-		gcc bins_rw/prova_${binary}.s -nostartfiles -lm -fsanitize=address -o bins_rw/${binary}_rw && echo Done
+		./retrowrite -a bins_rw/prova_${binary}.s bins_rw/${binary}_rw && echo Done
 
 	else
 		echo "rewriting ${binary}.s ..."
 		./retrowrite $binary_full bins_rw/prova_${binary}.s
 
 		echo "assembling ${binary}.s ..."
-		gcc bins_rw/prova_${binary}.s -nostartfiles -lm -o bins_rw/${binary}_rw && echo Done
+		./retrowrite -a bins_rw/prova_${binary}.s bins_rw/${binary}_rw && echo Done
 	fi
 done;

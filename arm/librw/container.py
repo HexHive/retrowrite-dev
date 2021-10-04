@@ -9,14 +9,15 @@ from arm.librw.util.arm_util import non_clobbered_registers, memory_replace, arg
 
 INSTR_SIZE = 4
 
-NEWSECS = {
-    ".got":".fake_got",
-    ".bss":".fake_bss",
-    ".data":".fake_data",
-    ".rodata":".fake_rodata",
-    ".text":".text",
-    ".init":".text",
-    ".fini":".text",
+# this sections can (and will) be modified by the linker.
+# they will destroy our very carefully built exact copy of
+# the virtual space of the original binary
+# for this reason, we just use a renamed version of them (.fake.got etc)
+TRAITOR_SECS = {
+    ".got",
+    ".bss",
+    ".data",
+    ".rodata",
 }
 
 
@@ -781,10 +782,10 @@ class Section():
         }
 
         newsecname = ""
-        if self.name in NEWSECS:
+        if self.name in TRAITOR_SECS:
             progbits = "@progbits" if self.name != ".bss" else "@nobits"
             secperms = perms[self.name] if self.name in perms else "aw"
-            newsecname = f"{NEWSECS[self.name]}, \"{secperms}\", {progbits}"
+            newsecname = f".fake{self.name}, \"{secperms}\", {progbits}"
         else:
             newsecname = f"{self.name} {self.flags}"
 

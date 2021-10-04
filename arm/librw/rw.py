@@ -12,7 +12,7 @@ from elftools.elf.enums import ENUM_RELOC_TYPE_AARCH64
 
 from arm.librw.util.logging import *
 from arm.librw.util.arm_util import _is_jump_conditional, is_reg_32bits, get_64bits_reg, memory_replace, get_access_size_arm
-from arm.librw.container import InstrumentedInstruction, Jumptable, NEWSECS
+from arm.librw.container import InstrumentedInstruction, Jumptable, TRAITOR_SECS
 from arm.librw.emulation import Path, Expr
 
 
@@ -137,7 +137,7 @@ class Rewriter():
         results.append(".align 12")
         for faddr, fn in sorted(self.container.functions.items()):
             if faddr - self.container.codesections['.text'].base < 0: continue
-            results.append(".quad 0x%x" % (faddr - self.container.codesections['.text'].base))
+            results.append(".quad 0x%x" % (faddr))
             results.append(".quad .LC%x" % faddr)
         results.append(".quad 0xffffffffffffffff") # mark end of hash map
         STACK_PAIR_REG_SAVE = "\tstp {0}, {1}, [sp, -16]!",  #pre-increment
@@ -152,10 +152,9 @@ class Rewriter():
             results.append(f"the_great_hash_{reg}:")
             results.append(f"""
                 stp {x1}, {x2}, [sp, -16]!
-                adrp {x1}, .fake.text_start
-                add {x1}, {x1}, :lo12:.fake.text_start
-                sub {reg}, {reg}, {x1}
-                adrp {x1}, hash_map
+                adrp {x1}, .fake.elf_header // we don't need the lower 12 bits as we know this will be page aligned
+                sub {reg}, {reg}, {x1} // this could be even more improved by storing already-precalculated offsets in the map
+                adrp {x1}, hash_map   // same for the hashmap. it is going to be page aligned
 
                 loop_{reg}:
                 ldr {x2}, [{x1}]
@@ -164,14 +163,12 @@ class Rewriter():
                 cmp {reg}, {x2}
                 b.ne loop_{reg}
 
-
                 found_{reg}:
                 ldr {reg}, [{x1}, -8] // grab corresponding value
                 b out_{reg}
 
-                not_found_{reg}:  // in case we did not find it, it's an import
-                adrp {x1}, .fake.text_start
-                add {x1}, {x1}, :lo12:.fake.text_start
+                not_found_{reg}:  // in case we did not find it, it's an import. just jump there.
+                adrp {x1}, .fake.elf_header
                 add {reg}, {reg}, {x1}
 
                 out_{reg}:
@@ -201,36 +198,30 @@ class Rewriter():
             results.append(f".section .fake{section.name}, \"ax\", @progbits")
             # results.append(".align 12") # removed to better fit sections
             results.append(f".fake{section.name}_start:")
-            # last_addr = self.container.loader.elffile.get_section_by_name(".text")['sh_addr'] - 4
-            last_addr = section.base - 4
-            for faddr in sorted(section.functions):
-                function = self.container.functions[faddr]
-                if function.name in Rewriter.GCC_FUNCTIONS:
-                    continue
-                skip = function.start - last_addr - 4
-                if skip > 0: results.append(".skip 0x%x" % (skip))
-                last_addr = function.start
-                results.append("b .LC%x // %s" % (function.start, function.name))
+
+        # we need one fake section just to represent the copy of the base address of the binary
+        results.append(f".section .fake.elf_header, \"a\", @progbits") 
+
+
+        # here we insert the list of the original addresses of the sections
+        # so that we keep them the same during linking and reproduce the virtual layout
+        running = 0x10000000
+        results.append(f"// SECTION: .fake.elf_header - {hex(running)}")
+        def force_section_addr(name, base):
+            name = f".fake{sec.name}"
+            results.append(f"// SECTION: {name} - {hex(base)}")
+
+        for sec in self.container.datasections.values():
+            if sec.name in TRAITOR_SECS:
+                force_section_addr(sec.name, running + sec.base)
+        for sec in self.container.codesections.values():
+            force_section_addr(sec.name, running + sec.base)
 
 
         # here we insert the list of dependencies of the elf,
         # that the linker will need to know about through lflags
         for dep in self.container.loader.dependencies:
             results.append(f"// DEPENDENCY: {dep}")
-
-        # here we insert the list of the original addresses of the sections
-        # so that we keep them the same during linking and reproduce the virtual layout
-        running = 0x10000000
-        for sec in self.container.datasections.values():
-            if sec.name in NEWSECS:
-                name = NEWSECS[sec.name]
-                base = sec.base + running
-                results.append(f"// SECTION: {name} - {hex(base)}")
-        for sec in self.container.codesections.values():
-            name = ".fake" + sec.name
-            base = sec.base + running
-            results.append(f"// SECTION: {name} - {hex(base)}")
-
 
         with open(self.outfile, 'w') as outfd:
             outfd.write("\n".join(results + ['']))
