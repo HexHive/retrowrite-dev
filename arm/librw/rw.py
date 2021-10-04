@@ -126,6 +126,57 @@ class Rewriter():
             results.append("%s" % (section))
 
 
+        for faddr, fn in sorted(self.container.functions.items()):
+            for idx, instruction in enumerate(fn.cache):
+                if "blr" in str(instruction):  # probably need to do this for all registers
+                    instruction.mnemonic = "bl"
+                    instruction.op_str = "the_great_hash_" + instruction.op_str
+        results.append(".section hash_map, \"ax\", @progbits")
+        results.append(".align 12")
+        for faddr, fn in sorted(self.container.functions.items()):
+            if faddr - self.container.codesections['.text'].base < 0: continue
+            results.append(".quad 0x%x" % (faddr - self.container.codesections['.text'].base))
+            results.append(".quad .LC%x" % faddr)
+        results.append(".quad 0xffffffffffffffff") # mark end of hash map
+        STACK_PAIR_REG_SAVE = "\tstp {0}, {1}, [sp, -16]!",  #pre-increment
+        STACK_PAIR_REG_LOAD = "\tldp {0}, {1}, [sp], 16",    #post-increment
+        for reg in range(30):
+            x1 = "x1"
+            x2 = "x2"
+            if reg < 3:
+                x1 = "x7"
+                x2 = "x8"
+            reg = "x"+str(reg)
+            results.append(f"the_great_hash_{reg}:")
+            results.append(f"""
+                stp {x1}, {x2}, [sp, -16]!
+                adrp {x1}, .fake.text_start
+                add {x1}, {x1}, :lo12:.fake.text_start
+                sub {reg}, {reg}, {x1}
+                adrp {x1}, hash_map
+
+                loop_{reg}:
+                ldr {x2}, [{x1}]
+                tbnz {x2}, 30, not_found_{reg} // check if negative (hashmap finished)
+                add {x1}, {x1}, 16
+                cmp {reg}, {x2}
+                b.ne loop_{reg}
+
+
+                found_{reg}:
+                ldr {reg}, [{x1}, -8] // grab corresponding value
+                b out_{reg}
+
+                not_found_{reg}:  // in case we did not find it, it's an import
+                adrp {x1}, .fake.text_start
+                add {x1}, {x1}, :lo12:.fake.text_start
+                add {reg}, {reg}, {x1}
+
+                out_{reg}:
+                ldp {x1}, {x2}, [sp], 16
+                br {reg}
+            """)
+
 
         for section in self.container.codesections.values():
             results.append(f".section {section.name}")
@@ -746,6 +797,24 @@ class Symbolizer():
         # 1. append original section address information at the end of assembly file
         # 2. parse them and append linker flags to gcc in retrowrite -a
         # 3. Re-enable cross section pointer constructions (now disabled) 
+
+
+        # WHAT TO DO 8
+        # Brokenness, destruction, crashes and sigsegvs
+        # is everything I see around me
+        # all hope is lost, 
+        # only one thing comes to my mind
+        # 1. Data sections need to be absolutely in sync with the old binary
+        # 2. except .got and shit that we do fake
+        # 3. when a pointer is a code pointer, it will eventually be called with bl
+        # 4. at this point we do the transformation (and maybe, CFI), 
+        # 5. SOMEHOW we can calculate back the original address that was in the binary 
+        # 6. the adrps in the code cannot use an absolute address. they need a label. obviously.
+        #    they need a label from the start of a binary. or maybe we define a place where virtual
+        #    space layout replication begins and we go from there.
+        # 7. The "hashmap" is now an array. Super slow. Please fix it.
+
+
 
 
 
