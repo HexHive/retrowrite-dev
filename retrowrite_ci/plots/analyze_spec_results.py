@@ -75,7 +75,7 @@ def plot(outf):
     print(df)
 
     # ugly patching for cuttin off bars too high
-    height_limit = 6000
+    height_limit = 3000
 
     ax = df.plot.bar(rot=30, figsize=(12, 7), ylim=(1,height_limit*1.1))
     ax.set_ylabel("Runtime (seconds)")

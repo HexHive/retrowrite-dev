@@ -198,6 +198,7 @@ class Rewriter():
             results.append(f".section .fake{section.name}, \"ax\", @progbits")
             # results.append(".align 12") # removed to better fit sections
             results.append(f".fake{section.name}_start:")
+            # results.append(".byte 00") # just to avoid it being empty
 
         # we need one fake section just to represent the copy of the base address of the binary
         results.append(f".section .fake.elf_header, \"a\", @progbits") 
@@ -850,7 +851,7 @@ class Symbolizer():
         # self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
         # return
 
-        if len(possible_sections) == 1:
+        if len(possible_sections) >= 1:
             secname = possible_sections[0]
             # even if it's text, we rewrite it
             self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
@@ -1177,27 +1178,27 @@ class Symbolizer():
             print("[*] Unhandled relocation {}".format(
                 describe_reloc_type(reloc_type, container.loader.elffile)))
 
-    def fix_got_section(self, container):
-        # gcc will add some stuff to the .got that is already there
-        # we want to keep the same size of the .got so here we remove
-        # the stuff gcc will add back (relocations, mostly)
+    # def fix_got_section(self, container):
+        # # gcc will add some stuff to the .got that is already there
+        # # we want to keep the same size of the .got so here we remove
+        # # the stuff gcc will add back (relocations, mostly)
 
-        # delete first three entries of .got, it does not seem we need to keep them
-        gotsec = container.datasections['.got']
-        gotsec.delete(0, 8*3) 
-        # we now remove the entries of the got relative to all imports
-        for rel in container.relocations['.plt']:
-            if rel['type'] == ENUM_RELOC_TYPE_AARCH64["R_AARCH64_JUMP_SLOT"]:
-                gotsec.delete(rel['offset'] - gotsec.base, 8)
-                Rewriter.total_deleted_from_got += 8
-        symtab = container.loader.elffile.get_section_by_name(".symtab")
-        # this symbol needs to be removed as gcc adds it back 
-        # (stores the address of the .dynamic section)
-        dyntable = symtab.get_symbol_by_name("_GLOBAL_OFFSET_TABLE_")
-        if len(dyntable) == 1:
-            gotsec.delete(dyntable[0]['st_value'] - gotsec.base, 8)
+        # # delete first three entries of .got, it does not seem we need to keep them
+        # gotsec = container.datasections['.got']
+        # gotsec.delete(0, 8*3) 
+        # # we now remove the entries of the got relative to all imports
+        # for rel in container.relocations['.plt']:
+            # if rel['type'] == ENUM_RELOC_TYPE_AARCH64["R_AARCH64_JUMP_SLOT"]:
+                # gotsec.delete(rel['offset'] - gotsec.base, 8)
+                # Rewriter.total_deleted_from_got += 8
+        # symtab = container.loader.elffile.get_section_by_name(".symtab")
+        # # this symbol needs to be removed as gcc adds it back 
+        # # (stores the address of the .dynamic section)
+        # dyntable = symtab.get_symbol_by_name("_GLOBAL_OFFSET_TABLE_")
+        # if len(dyntable) == 1:
+            # gotsec.delete(dyntable[0]['st_value'] - gotsec.base, 8)
 
-        Rewriter.total_deleted_from_got += 4*8
+        # Rewriter.total_deleted_from_got += 4*8
 
 
 
@@ -1207,7 +1208,7 @@ class Symbolizer():
             for rel in section.relocations:
                 self._handle_relocation(container, section, rel)
 
-        self.fix_got_section(container)
+        # self.fix_got_section(container)
 
         # .dyn relocations
         dyn = container.relocations[".dyn"]

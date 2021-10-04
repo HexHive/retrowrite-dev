@@ -18,6 +18,8 @@ TRAITOR_SECS = {
     ".bss",
     ".data",
     ".rodata",
+    ".init_array",
+    ".fini_array",
 }
 
 
