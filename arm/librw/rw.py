@@ -130,9 +130,17 @@ class Rewriter():
 
         for faddr, fn in sorted(self.container.functions.items()):
             for idx, instruction in enumerate(fn.cache):
-                if "blr" in str(instruction):  # probably need to do this for all registers
+                if "br" in str(instruction.mnemonic) and idx > 0 and \
+                    "ldp x29, x30" in str(fn.cache[idx-1]):
+                    # if loading back sp and return address just before indirect branch, 
+                    # we can safely assume this is tail call optimization
+                    # and we can treat it as a call
+                    instruction.mnemonic = "b"
+                    instruction.op_str = "the_great_hash_" + instruction.op_str
+                if "blr" in str(instruction.mnemonic):
                     instruction.mnemonic = "bl"
                     instruction.op_str = "the_great_hash_" + instruction.op_str
+
         results.append(".section hash_map, \"ax\", @progbits")
         results.append(".align 12")
         for faddr, fn in sorted(self.container.functions.items()):
