@@ -16,7 +16,6 @@ from arm.librw.container import InstrumentedInstruction, Jumptable, TRAITOR_SECS
 from arm.librw.emulation import Path, Expr
 
 
-
 class Rewriter():
     GCC_FUNCTIONS = [ # functions added by the compiler. No use in rewriting them
         # "_start",
@@ -206,7 +205,15 @@ class Rewriter():
             results.append(f".section .fake{section.name}, \"ax\", @progbits")
             # results.append(".align 12") # removed to better fit sections
             results.append(f".fake{section.name}_start:")
-            # results.append(".byte 00") # just to avoid it being empty
+            # last_addr = section.base - 4
+            # for faddr in sorted(section.functions):
+                # function = self.container.functions[faddr]
+                # if function.name in Rewriter.GCC_FUNCTIONS:
+                    # continue
+                # skip = function.start - last_addr - 4
+                # if skip > 0: results.append(".skip 0x%x" % (skip))
+                # last_addr = function.start
+                # results.append("b .LC%x // %s" % (function.start, function.name))
 
         # we need one fake section just to represent the copy of the base address of the binary
         results.append(f".section .fake.elf_header, \"a\", @progbits") 
@@ -234,6 +241,7 @@ class Rewriter():
 
         with open(self.outfile, 'w') as outfd:
             outfd.write("\n".join(results + ['']))
+
 
         if Rewriter.total_globals > 0:
             info(f"Saved {Rewriter.literal_saves} out of {Rewriter.total_globals} global accesses ({Rewriter.literal_saves / Rewriter.total_globals * 100}% )")
@@ -673,9 +681,6 @@ class Symbolizer():
         if secname in container.codesections:
             base = container.codesections[secname].base
             secname = f".fake{secname}"
-        elif secname == ".got":
-            # the compiler will add stuff at the start of .got, need to take that into account
-            base = container.datasections['.got'].base + Rewriter.total_deleted_from_got
         else:
             base = container.datasections[secname].base
         reg_name = instruction.reg_writes()[0]

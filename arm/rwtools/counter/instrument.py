@@ -33,13 +33,18 @@ class Instrument():
         # """
 
         instrumentation = """
-        stp x7, x8, [sp, -16]!
-        adrp x8, .counted 
+        stp x7, x8, [sp, -16]! // save x7, x8
+
+        // build a pointer in x8 to .counted
+        adrp x8, .counted
         add x8, x8, :lo12:.counted
+
+        // add 1 to .counted
         ldr x7, [x8]
         add x7, x7, 1
         str x7, [x8]
-        ldp x7, x8, [sp], 16
+
+        ldp x7, x8, [sp], 16  // load back x7 and x8
         """
 
         comment = "{}: {}".format(str(instruction), str(free))
@@ -49,7 +54,7 @@ class Instrument():
 
 
     def do_instrument(self):
-        for _, fn in self.rewriter.container.functions.items():
+        for faddr, fn in self.rewriter.container.functions.items():
             for idx, instruction in enumerate(fn.cache):
 
                 if any("adrp" in str(x) for x in instruction.before):
@@ -73,16 +78,26 @@ class Instrument():
         ds = DataSection(".fini", 0x200000, 0, None)
         ds.align = 0
         instrumentation = """
+        // build a pointer to .perms
         adrp x1, .perms
         add x1, x1, :lo12:.perms
+
+        // build a pointer to .file
         adrp x0, .file
         add x0, x0, :lo12:.file
+
+        // call the libc fopen(.file, .perms)
         bl fopen
 
+        // load .counted in x2
         adrp x2, .counted
         ldr x2, [x2, :lo12:.counted]
+
+        // build a pointer to .format
         adrp x1, .format
         add x1, x1, :lo12:.format
+
+        // fprintf( fopen("/tmp/countfile", "w"), "%lld", counted);
         bl fprintf
         """
         ds.cache.append( DataCell.instrumented(instrumentation, 0))
