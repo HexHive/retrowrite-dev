@@ -1,5 +1,6 @@
 *.swp
 *.pyc
+*.un~
 testbins/build/
 retrowrite.wiki/
 __pycache__/
