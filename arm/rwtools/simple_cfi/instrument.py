@@ -38,9 +38,10 @@ class Instrument():
                 continue
             first_instr = fn.cache[0]
             first_instr.before.insert(0, InstrumentedInstruction("paciasp"))
-            #NOTE Assumption: ret is always the last instruction.
-            last_instr = fn.cache[-1]
-            last_instr.before.insert(0, InstrumentedInstruction("autiasp"))
+            #NOTE Wrong assumption: ret is always the last instruction.
+            for instruction in fn.cache:
+                if "ret" == instruction.mnemonic:
+                    instruction.before.insert(0, InstrumentedInstruction("autiasp"))
 
         #NOTE First check for the 
         for _, fn in self.rewriter.container.functions.items():
