@@ -127,61 +127,63 @@ class Rewriter():
             results.append("%s" % (section))
 
 
-        for faddr, fn in sorted(self.container.functions.items()):
-            for idx, instruction in enumerate(fn.cache):
-                if "br" in str(instruction.mnemonic) and idx > 0 and \
-                    "ldp x29, x30" in str(fn.cache[idx-1]):
-                    # if loading back sp and return address just before indirect branch, 
-                    # we can safely assume this is tail call optimization
-                    # and we can treat it as a call
-                    instruction.mnemonic = "b"
-                    instruction.op_str = "the_great_hash_" + instruction.op_str
-                if "blr" in str(instruction.mnemonic):
-                    instruction.mnemonic = "bl"
-                    instruction.op_str = "the_great_hash_" + instruction.op_str
+        # hash map stuff
 
-        results.append(".section hash_map, \"ax\", @progbits")
-        results.append(".align 12")
-        for faddr, fn in sorted(self.container.functions.items()):
-            if faddr - self.container.codesections['.text'].base < 0: continue
-            results.append(".quad 0x%x" % (faddr))
-            results.append(".quad .LC%x" % faddr)
-        results.append(".quad 0xffffffffffffffff") # mark end of hash map
-        STACK_PAIR_REG_SAVE = "\tstp {0}, {1}, [sp, -16]!",  #pre-increment
-        STACK_PAIR_REG_LOAD = "\tldp {0}, {1}, [sp], 16",    #post-increment
-        for reg in range(30):
-            x1 = "x1"
-            x2 = "x2"
-            if reg < 3:
-                x1 = "x7"
-                x2 = "x8"
-            reg = "x"+str(reg)
-            results.append(f"the_great_hash_{reg}:")
-            results.append(f"""
-                stp {x1}, {x2}, [sp, -16]!
-                adrp {x1}, .fake.elf_header // we don't need the lower 12 bits as we know this will be page aligned
-                sub {reg}, {reg}, {x1} // this could be even more improved by storing already-precalculated offsets in the map
-                adrp {x1}, hash_map   // same for the hashmap. it is going to be page aligned
+        # for faddr, fn in sorted(self.container.functions.items()):
+            # for idx, instruction in enumerate(fn.cache):
+                # if "br" in str(instruction.mnemonic) and idx > 0 and \
+                    # "ldp x29, x30" in str(fn.cache[idx-1]):
+                    # # if loading back sp and return address just before indirect branch, 
+                    # # we can safely assume this is tail call optimization
+                    # # and we can treat it as a call
+                    # instruction.mnemonic = "b"
+                    # instruction.op_str = "the_great_hash_" + instruction.op_str
+                # if "blr" in str(instruction.mnemonic):
+                    # instruction.mnemonic = "bl"
+                    # instruction.op_str = "the_great_hash_" + instruction.op_str
 
-                loop_{reg}:
-                ldr {x2}, [{x1}]
-                tbnz {x2}, 30, not_found_{reg} // check if negative (hashmap finished)
-                add {x1}, {x1}, 16
-                cmp {reg}, {x2}
-                b.ne loop_{reg}
+        # results.append(".section hash_map, \"ax\", @progbits")
+        # results.append(".align 12")
+        # for faddr, fn in sorted(self.container.functions.items()):
+            # if faddr - self.container.codesections['.text'].base < 0: continue
+            # results.append(".quad 0x%x" % (faddr))
+            # results.append(".quad .LC%x" % faddr)
+        # results.append(".quad 0xffffffffffffffff") # mark end of hash map
+        # STACK_PAIR_REG_SAVE = "\tstp {0}, {1}, [sp, -16]!",  #pre-increment
+        # STACK_PAIR_REG_LOAD = "\tldp {0}, {1}, [sp], 16",    #post-increment
+        # for reg in range(30):
+            # x1 = "x1"
+            # x2 = "x2"
+            # if reg < 3:
+                # x1 = "x7"
+                # x2 = "x8"
+            # reg = "x"+str(reg)
+            # results.append(f"the_great_hash_{reg}:")
+            # results.append(f"""
+                # stp {x1}, {x2}, [sp, -16]!
+                # adrp {x1}, .fake.elf_header // we don't need the lower 12 bits as we know this will be page aligned
+                # sub {reg}, {reg}, {x1} // this could be even more improved by storing already-precalculated offsets in the map
+                # adrp {x1}, hash_map   // same for the hashmap. it is going to be page aligned
 
-                found_{reg}:
-                ldr {reg}, [{x1}, -8] // grab corresponding value
-                b out_{reg}
+                # loop_{reg}:
+                # ldr {x2}, [{x1}]
+                # tbnz {x2}, 30, not_found_{reg} // check if negative (hashmap finished)
+                # add {x1}, {x1}, 16
+                # cmp {reg}, {x2}
+                # b.ne loop_{reg}
 
-                not_found_{reg}:  // in case we did not find it, it's an import. just jump there.
-                adrp {x1}, .fake.elf_header
-                add {reg}, {reg}, {x1}
+                # found_{reg}:
+                # ldr {reg}, [{x1}, -8] // grab corresponding value
+                # b out_{reg}
 
-                out_{reg}:
-                ldp {x1}, {x2}, [sp], 16
-                br {reg}
-            """)
+                # not_found_{reg}:  // in case we did not find it, it's an import. just jump there.
+                # adrp {x1}, .fake.elf_header
+                # add {reg}, {reg}, {x1}
+
+                # out_{reg}:
+                # ldp {x1}, {x2}, [sp], 16
+                # br {reg}
+            # """)
 
 
         for section in self.container.codesections.values():
@@ -205,15 +207,15 @@ class Rewriter():
             results.append(f".section .fake{section.name}, \"ax\", @progbits")
             # results.append(".align 12") # removed to better fit sections
             results.append(f".fake{section.name}_start:")
-            # last_addr = section.base - 4
-            # for faddr in sorted(section.functions):
-                # function = self.container.functions[faddr]
-                # if function.name in Rewriter.GCC_FUNCTIONS:
-                    # continue
-                # skip = function.start - last_addr - 4
-                # if skip > 0: results.append(".skip 0x%x" % (skip))
-                # last_addr = function.start
-                # results.append("b .LC%x // %s" % (function.start, function.name))
+            last_addr = section.base - 4
+            for faddr in sorted(section.functions):
+                function = self.container.functions[faddr]
+                if function.name in Rewriter.GCC_FUNCTIONS:
+                    continue
+                skip = function.start - last_addr - 4
+                if skip > 0: results.append(".skip 0x%x" % (skip))
+                last_addr = function.start
+                results.append("b .LC%x // %s" % (function.start, function.name))
 
         # we need one fake section just to represent the copy of the base address of the binary
         results.append(f".section .fake.elf_header, \"a\", @progbits") 
@@ -221,7 +223,7 @@ class Rewriter():
 
         # here we insert the list of the original addresses of the sections
         # so that we keep them the same during linking and reproduce the virtual layout
-        running = 0x10000000
+        running = 0x1000000
         results.append(f"// SECTION: .fake.elf_header - {hex(running)}")
         def force_section_addr(name, base):
             name = f".fake{sec.name}"
@@ -684,20 +686,25 @@ class Symbolizer():
         else:
             base = container.datasections[secname].base
         reg_name = instruction.reg_writes()[0]
-        diff = base - orig_off
-        op = '-' if diff > 0 else '+'
-        secname = secname + "_start"
-        # will get overwritten by the compiler after reassembly. We introduce a 
-        # "got_start" label so that we keep track of where the "old" got section was
-        pages = (abs(diff) // 4096) * 4096
-        instruction.instrument_before(InstrumentedInstruction(f"\tadrp {reg_name}, ({secname} {op} {pages})"))
-        instruction.instrument_before(InstrumentedInstruction(f"\tadd {reg_name}, {reg_name}, :lo12:{secname}"))
-        instruction.mnemonic = "add" if op == "+" else "sub"
-        instruction.op_str = "%s, %s, %s"  % (reg_name, reg_name, hex(abs(diff) % 4096))
-        # trying to get it shorter, does not work
-        # instruction.mnemonic = "add"
-        # instruction.op_str = f"{reg_name}, {reg_name}, (:lo12:{secname} {op} {abs(diff)%4096})"
-        # instruction.instrumented = True
+
+
+        # old
+        # diff = base - orig_off
+        # op = '-' if diff > 0 else '+'
+        # secname = secname + "_start"
+        # pages = (abs(diff) // 0x1000) * 0x1000
+        # instruction.instrument_before(InstrumentedInstruction(f"\tadrp {reg_name}, ({secname} {op} {pages})"))
+        # instruction.mnemonic = "add" if op == "+" else "sub"
+        # instruction.op_str = "%s, %s, %s"  % (reg_name, reg_name, hex(abs(diff) % 4096))
+
+        # new
+        diff = base
+        op = '+'
+        secname = ".fake.elf_header"
+        pages = orig_off
+
+        instruction.mnemonic = "adrp"
+        instruction.op_str = f"{reg_name}, ({secname} {op} {hex(pages)})"
 
 
     def _get_resolved_address(self, function, inst, inst2, path):

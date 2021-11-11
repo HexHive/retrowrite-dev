@@ -6,6 +6,10 @@ from arm.librw.util.logging import *
 from arm.librw.container import INSTR_SIZE
 from arm.librw.util.arm_util import get_reg_size_arm, get_access_size_arm, is_reg_32bits, get_64bits_reg, non_clobbered_registers
 import random
+import os
+
+
+skipped_functions = ["call_weak_fn", "__libc_csu_init", "_init", "register_tm_clones"]
 
 
 class Instrument():
@@ -30,10 +34,32 @@ class Instrument():
 
         return InstrumentedInstruction(instrumentation, enter_lbl, comment)
 
+    def instrument_persistent(self, addr):
+        # we need to call __afl_persistent_instrumentation instead of main
+        # so we hijack the _start
+        start_func = None
+        for faddr, fn in self.rewriter.container.functions.items():
+            if fn.name == "_start":
+                start_func = fn
+        for idx, instruction in enumerate(start_func.cache):
+            # passing main as first argument 
+            if "ldr x0, [x0" in str(instruction):
+                instruction.mnemonic = "// " + instruction.mnemonic
+                prev_instruction = fn.cache[idx-1] 
+                prev_instruction.mnemonic = "// " + prev_instruction.mnemonic
+                instrumentation = "adrp x0, __afl_persistent_instrumentation\nadd x0, x0, :lo12:__afl_persistent_instrumentation"
+                instruction.instrument_after(InstrumentedInstruction(instrumentation))
 
 
     def do_instrument(self):
+
         for faddr, fn in self.rewriter.container.functions.items():
+            if fn.name in skipped_functions: continue
+            if fn.name == "main":
+                # we call afl_maybe_log the first time just after the main
+                # preamble so that the forkserver is started as soon as possible
+                # but not before main
+                fn.cache[2].instrument_before(self.get_mem_instrumentation(fn.cache[2], idx, free_registers))
             for idx, instruction in enumerate(fn.cache):
 
                 if instruction.mnemonic.startswith("b") and idx+1 < len(fn.cache):
@@ -45,8 +71,21 @@ class Instrument():
         payload = main_payload_arm.format(FORKSRV_FD=FORKSRV_FD, FORKSRV_FD_1=FORKSRV_FD_1, AFL_STATUS_FLAGS=(FORKSRV_OPT_ENABLED | FS_OPT_MAPSIZE | get_map_size(MAP_SIZE)))
         afl_sec = Section(".afl_sec", 0x200000, 0, None)
         afl_sec.cache.append(DataCell.instrumented(payload, 0))
-        # ds.cache.append(DataCell.instrumented(content, 0))
+
+        persistent_addr = os.getenv("AFL_PERSISTENT_ADDR", default=None)
+        if persistent_addr is not None:
+            self.instrument_persistent(persistent_addr)
+            persistent_payload = persistent_instrumentation.format(persistent_function=persistent_addr, PERSISTENT_SIGNATURE=PERSISTENT_SIGNATURE)
+            persistent_cycles = os.getenv("AFL_PERSISTENT_CYCLES", default=1000)
+            persistent_payload_loop = persistent_loop.format(PERSISTENT_CYCLES=persistent_cycles, PREV_LOC_MEMSET_SIZE=PREV_LOC_MEMSET_SIZE, SIGSTOP_NUM=SIGSTOP_NUM, MAP_SIZE=MAP_SIZE)
+            afl_sec.cache.append(DataCell.instrumented(persistent_payload, 0))
+            afl_sec.cache.append(DataCell.instrumented(persistent_payload_loop, 0))
+
         self.rewriter.container.add_data_section(afl_sec)
+
+
+
+
 
 def get_map_size(x):
     return (x <= 1 or ((x - 1) << 1))
@@ -63,11 +102,55 @@ FS_OPT_SNAPSHOT = 0x20000000
 FS_OPT_AUTODICT = 0x10000000
 FS_OPT_SHDMEM_FUZZ = 0x01000000
 FS_OPT_OLD_AFLPP_WORKAROUND = 0x0f000000
-# FS_OPT_MAX_MAPSIZE is 8388608 = 0x800000 = 2^23 = 1 << 22
-#define FS_OPT_MAX_MAPSIZE ((0x00fffffeU >> 1) + 1)
-#define FS_OPT_GET_MAPSIZE(x) (((x & 0x00fffffe) >> 1) + 1)
-#define FS_OPT_SET_MAPSIZE(x) \
-#  (x <= 1 || x > FS_OPT_MAX_MAPSIZE ? 0 : ((x - 1) << 1))
+
+PERSISTENT_SIGNATURE = "##SIG_AFL_PERSISTENT##"
+PERSISTENT_CYCLES = 1000
+NGRAMS_SIZE_MAX = 16
+PREV_LOC_MEMSET_SIZE = NGRAMS_SIZE_MAX * 2
+SIGSTOP_NUM = 19
+
+
+
+### TODO possible optimization:
+# as of now the first call to __afl_maybe_log
+# starts the forkserver. The first instance in is 
+# call_weak_fn, which is maybe too early. 
+# We might want to call afl_maybe_log as the first instruction 
+# of main instead
+
+inline_fmt_arm = """
+
+stp x0, x1, [sp, #-16]!
+stp x2, x3, [sp, #-16]!
+stp x4, x5, [sp, #-16]!
+stp x7, x9, [sp, #-16]!
+mrs x7, nzcv
+
+ldr x0, =__afl_setup_failure
+ldr x0, [x0]
+cmp x0, #0
+bne __afl_return
+
+ldr x0, =__afl_area_ptr
+ldr x0, [x0]
+cmp x0, #0
+bne .call_afl_store_{x}
+
+bl __afl_setup
+b .__afl_end_{x}
+
+.call_afl_store_{x}:
+mov x9, {random}
+bl __afl_store
+b .__afl_end_{x}
+
+//msr nzcv, x7
+//ldp x7, x9, [sp], #16
+//ldp x4, x5, [sp], #16
+//ldp x2, x3, [sp], #16
+//ldp x0, x1, [sp], #16
+.__afl_end_{x}:
+"""
 
 trampoline_fmt_arm = """
 // afl trampoline
@@ -76,6 +159,8 @@ mov x0, {random}
 bl __afl_maybe_log
 ldp x0, lr, [sp], #16
 """
+
+
 
 main_payload_arm = """
 .section afl_payload, "awx", @progbits
@@ -100,6 +185,11 @@ ldr x0, =__afl_area_ptr
 ldr x0, [x0]
 cmp x0, #0
 bne __afl_store
+
+// here afl setup starts
+.type __afl_setup, @function
+.globl __afl_setup
+__afl_setup:
 
 ldr x0, =.AFL_SHM_ENV
 bl getenv
@@ -153,24 +243,31 @@ mov x1, x5
 mov x2, #4
 bl read
 
+
+adr x5, __afl_temp
+
 cmp x0, #4
 bne __afl_die
 
 bl fork
 cmp x0, #0
-blt __afl_die  // useless
 beq __afl_fork_resume  // I am the child
+blt __afl_die  // useless
 ldr x1, =__afl_fork_pid // I am the father
 str x0, [x1]
 mov x6, x0
 mov x0, #{FORKSRV_FD_1}
 mov x2, #4
 bl write
+
+
 cmp x0, #4
 bne __afl_die
-mov x0, x6
+
+ldr x0, =__afl_fork_pid
+ldr x0, [x0]
 mov x1, x5
-mov x2, #0
+mov x2, 0
 bl waitpid
 cmp x0, #0
 blt __afl_die
@@ -226,15 +323,212 @@ mov x0, #0
 bl exit
 .AFL_VARS:
 .comm __afl_area_ptr, 8, 8
-.comm __afl_setup_failure, 4, 4
+.comm __afl_area_ptr_dummy, 8, 8
+.comm __afl_setup_failure, 8, 8
 // #ifndef COVERAGE_ONLY
 .comm __afl_prev_loc, 8, 8
 // #endif /* !COVERAGE_ONLY */
-.comm __afl_fork_pid, 4, 4
-.comm __afl_temp, 4, 4
+.comm __afl_fork_pid, 8, 8
+.comm __afl_temp, 8, 8
 .AFL_STATUS_FLAGS:
 .quad {AFL_STATUS_FLAGS}
+.AFL_WAIT_FLAGS:
+.quad 0x40000000
 .AFL_SHM_ENV:
 .string \"__AFL_SHM_ID\"
 // end
+"""
+
+
+
+
+
+
+
+persistent_loop = """
+
+.format_string:
+    .string \"output: 0x%lx\\n\"
+
+.align 4
+.type __afl_persistent_loop, @function
+.globl __afl_persistent_loop
+__afl_persistent_loop:
+
+stp x1, x2, [sp, #-16]!
+stp x3, x9, [sp, #-16]!
+stp x5, x6, [sp, #-16]!
+stp x7, lr, [sp, #-16]!
+mrs x7, nzcv
+
+// if (first_pass)
+adr x2, .first_pass
+ldr x1, [x2]
+cmp x1, 0
+b.eq .not_first_pass
+
+    // cycle_count = 1000;
+    mov x1, {PERSISTENT_CYCLES}
+    adr x3, .cycle_count
+    str x1, [x3]
+
+    mov x1, 0
+    str x1, [x2]
+
+
+    // memset(__afl_area_ptr, 0, map_size);
+    adr x0, __afl_area_ptr
+    ldr x0, [x0]
+    mov x1, 0
+    adr x2, .map_size
+    ldr x2, [x2]
+    bl memset
+
+
+    // __afl_area_ptr[0] = 1;
+    ldr x0, =__afl_area_ptr
+    ldr x0, [x0]
+    mov x1, 1
+    str x1, [x0]
+
+    // remove this
+    adr x0, .format_string
+    ldr x1, =__afl_prev_loc
+    ldr x1, [x1]
+    bl printf
+
+    // memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+    //ldr x0, =__afl_prev_loc
+    //ldr x0, [x0]
+    //mov x1, 0
+    //mov x2, {PREV_LOC_MEMSET_SIZE}
+    //bl memset
+
+    // remove this
+    adr x0, .format_string
+    ldr x1, =__afl_area_ptr
+    ldr x1, [x1]
+    bl printf
+
+    mov x0, 1
+    b .return
+
+.not_first_pass:
+
+    // if (--cycle_count)
+    adr x3, .cycle_count
+    ldr x1, [x3]
+    sub x1, x1, 1
+    str x1, [x3]
+    cmp x1, 0
+    b.eq .loop_done
+
+    // remove this
+    adr x0, .format_string
+    ldr x1, =__afl_prev_loc
+    ldr x1, [x1]
+    bl printf
+
+    // raise(SIGSTOP);
+    mov x0, {SIGSTOP_NUM}
+    bl raise
+
+    // __afl_area_ptr[0] = 1;
+    ldr x0, =__afl_area_ptr
+    ldr x0, [x0]
+    mov x1, 1
+    str x1, [x0]
+
+    // memset(__afl_prev_loc, 0, NGRAM_SIZE_MAX * sizeof(PREV_LOC_T));
+    ldr x0, =__afl_prev_loc
+    ldr x0, [x0]
+    mov x1, 0
+    mov x2, {PREV_LOC_MEMSET_SIZE}
+    bl memset
+
+    mov x0, 1
+    b .return
+
+.loop_done:
+    // __afl_area_ptr = __afl_area_ptr_dummy
+    ldr x1, =__afl_area_ptr 
+    ldr x2, =__afl_area_ptr_dummy
+    ldr x2, [x2]
+    str x2, [x1]
+
+    mov x0, 0
+    b .return
+
+.return:
+msr nzcv, x7
+ldp x7, lr, [sp], #16
+ldp x5, x6, [sp], #16
+ldp x3, x9, [sp], #16
+ldp x1, x2, [sp], #16
+ret
+
+.first_pass:
+.quad 1
+.cycle_count:
+.quad 0
+.map_size:
+.quad {MAP_SIZE}
+"""
+
+
+persistent_instrumentation = """
+.string "{PERSISTENT_SIGNATURE}"
+.align 4
+.type __afl_persistent_instrumentation, @function
+.globl __afl_persistent_instrumentation
+__afl_persistent_instrumentation:
+
+stp x1, x2, [sp, #-16]!
+stp x3, x4, [sp, #-16]!
+stp x5, x6, [sp, #-16]!
+stp x7, x8, [sp, #-16]!
+stp x9, x10, [sp, #-16]!
+stp x11, x12, [sp, #-16]!
+stp x13, x14, [sp, #-16]!
+stp x15, x16, [sp, #-16]!
+stp x17, x18, [sp, #-16]!
+stp x19, x20, [sp, #-16]!
+stp x21, x12, [sp, #-16]!
+stp x23, x24, [sp, #-16]!
+stp x25, x26, [sp, #-16]!
+stp x27, x28, [sp, #-16]!
+stp x29, x30, [sp, #-16]!
+mrs x7, nzcv
+
+bl __afl_maybe_log
+
+loop:
+    bl __afl_persistent_loop
+    cmp x0, 0
+    b.eq .end
+
+    msr nzcv, x7
+    ldp x29, x30, [sp], #16
+    ldp x27, x28, [sp], #16
+    ldp x25, x26, [sp], #16
+    ldp x23, x24, [sp], #16
+    ldp x21, x12, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x17, x18, [sp], #16
+    ldp x15, x16, [sp], #16
+    ldp x13, x14, [sp], #16
+    ldp x11, x12, [sp], #16
+    ldp x9, x10,  [sp], #16
+    ldp x7, x8,   [sp], #16
+    ldp x5, x6,   [sp], #16
+    ldp x3, x4,   [sp], #16
+    ldp x1, x2,   [sp], #16
+
+    bl {persistent_function}
+
+    b loop
+
+.end:
+    mov x0, 0
+    bl exit
 """
