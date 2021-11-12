@@ -15,6 +15,7 @@ from arm.librw.util.arm_util import _is_jump_conditional, is_reg_32bits, get_64b
 from arm.librw.container import InstrumentedInstruction, Jumptable, TRAITOR_SECS
 from arm.librw.emulation import Path, Expr
 
+FAKE_ELF_BASE = 0x1000000
 
 class Rewriter():
     GCC_FUNCTIONS = [ # functions added by the compiler. No use in rewriting them
@@ -223,17 +224,16 @@ class Rewriter():
 
         # here we insert the list of the original addresses of the sections
         # so that we keep them the same during linking and reproduce the virtual layout
-        running = 0x1000000
-        results.append(f"// SECTION: .fake.elf_header - {hex(running)}")
+        results.append(f"// SECTION: .fake.elf_header - {hex(FAKE_ELF_BASE)}")
         def force_section_addr(name, base):
             name = f".fake{sec.name}"
             results.append(f"// SECTION: {name} - {hex(base)}")
 
         for sec in self.container.datasections.values():
             if sec.name in TRAITOR_SECS:
-                force_section_addr(sec.name, running + sec.base)
+                force_section_addr(sec.name, FAKE_ELF_BASE + sec.base)
         for sec in self.container.codesections.values():
-            force_section_addr(sec.name, running + sec.base)
+            force_section_addr(sec.name, FAKE_ELF_BASE + sec.base)
 
 
         # here we insert the list of dependencies of the elf,
@@ -878,7 +878,10 @@ class Symbolizer():
             self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
             return
 
-        assert(False)
+            # self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+            # return
+
+        # assert(False)
 
         # if possible_sections[0] == '.data' and possible_sections[1] == '.bss':
             # self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
@@ -1007,10 +1010,19 @@ class Symbolizer():
                 self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
                 debug(f"We're good, false alarm, the only possible section is: {secname}. Nice!")
                 return
-            else: #XXX: remove this else case!!!!
-                print("OMGGGGGGGGGGGGGGGG" , inst.address)
-                self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
-                return
+            # elif <= 853875: # success here
+            # elif 345864 <= inst.address <= 853875: # success here
+            # elif 345864 <= inst.address <= 826672: # success
+            # elif 853875 <= inst.address <= 1461028: # bug
+            # elif 853875 <= inst.address <= 1314488: # bug
+            # elif 853875 <= inst.address <= 1313384: # success
+            # elif 1313384 <= inst.address <= 1314488: # bug
+            # elif 1313384 <= inst.address <= 1314304: # bug
+            # elif 1313384 <= inst.address <= 1313720: # success
+            # elif 1314304 <= inst.address <= 1314304: # XXX: remove this else
+                # print(inst.address, "OMGGGGGGGGGGGGGGGG")
+                # self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
+                # return
                 # Rewriter.total_text += 1
                 # no_func = 0
                 # for _, functiona in container.functions.items():
@@ -1184,7 +1196,7 @@ class Symbolizer():
         # elif reloc_type == ENUM_RELOC_TYPE_x64["R_X86_64_RELATIVE"]:
         if reloc_type == ENUM_RELOC_TYPE_AARCH64["R_AARCH64_RELATIVE"]:
             value = rel['addend']
-            label = ".LC%x" % value
+            label = "0x%x" % value + " + .fake.elf_header"
             if int(value) in container.ignore_function_addrs:
                 return
             section.replace(rel['offset'], 8, label)
