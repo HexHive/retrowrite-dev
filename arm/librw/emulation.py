@@ -97,6 +97,8 @@ class Path:
             return
         if instr.mnemonic in ["csinv"]: # skip comparison based instructions
             return
+        if instr.mnemonic in ["fcvtzs"]: # skip floating point instructions
+            return
 
 
         ops = instr.cs.operands

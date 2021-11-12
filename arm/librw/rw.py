@@ -618,6 +618,7 @@ class Symbolizer():
                                 memory_replace(container, jmptbl_addr + i*size, size, swlbl)
                                 cases_list += [addr]
 
+                            print(f"Found jmptbl at {hex(instr.address)}, loc {hex(jmptbl_addr)}, size {size}, base_case {base_case}")
                             function.add_switch(Jumptable(instr.address, jmptbl_addr, size, base_case, cases_list))
                             break
                         except:
@@ -876,6 +877,8 @@ class Symbolizer():
             # even if it's text, we rewrite it
             self._adjust_adrp_section_pointer(container, secname, orig_off, inst)
             return
+
+        assert(False)
 
         # if possible_sections[0] == '.data' and possible_sections[1] == '.bss':
             # self._adjust_adrp_section_pointer(container, possible_sections[0], orig_off, inst)
