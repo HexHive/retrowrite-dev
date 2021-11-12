@@ -508,7 +508,8 @@ class Function():
             results.append(".globl %s" % (self.name))
         else:
             results.append(".local %s" % (self.name))
-        results.append(".type %s, @function" % (self.name))
+        results.append(".type %s, @function" % (self.name)) 
+        results.append(".quad 0xbaddcafe")
         results.append("%s:" % (self.name))
 
         for instruction in self.cache:
@@ -521,14 +522,13 @@ class Function():
             if instruction.align:
                 results.append(".align %d" % (instruction.align))
 
-
             if instruction.address in self.bbstarts:
                 results.append(".L%x:" % (instruction.address))
             results.append(".LC%x:" % (instruction.address))
-
+            
             for iinstr in instruction.before:
                 results.append("{}".format(iinstr))
-
+            
             results.append(
                 "\t%s %s" % (instruction.mnemonic, instruction.op_str))
 

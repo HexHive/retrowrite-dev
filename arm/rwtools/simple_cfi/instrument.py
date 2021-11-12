@@ -14,7 +14,8 @@ class Instrument():
         jump_reg = instruction.cs.op_str
 
         instrumentation = f"""
-        // CFI check 
+        // CFI check
+        sub {jump_reg}, {jump_reg}, 8
         stp x7, x8, [sp, -16]!
         ldr x7, [{jump_reg}]
         adrp x8, .value 
@@ -22,7 +23,7 @@ class Instrument():
         ldr x8, [x8]
         cmp x7, x8
         b.eq 8                          // jump over crash
-        brk 1                           // crash
+        .word 0x0                           // crash
         ldp x7, x8, [sp], 16            // restore regs and continue
         // END CFI CHECK
         add {jump_reg}, {jump_reg}, 8   // skip first 8 bytes of known value
@@ -33,33 +34,35 @@ class Instrument():
 
 
     def do_instrument(self):
+        #NOTE First do the pac then add the magic word 
+        #for _, fn in self.rewriter.container.functions.items():
+        #    if fn.name in ["_start", "close_stdout"] or len(fn.cache) == 0:
+        #        continue
+        #    first_instr = fn.cache[0]
+        #    first_instr.instrument_before(InstrumentedInstruction("\t.quad 0xbaddcafe"), 0)
+        
         for _, fn in self.rewriter.container.functions.items():
             if fn.name in ["_start", "close_stdout"] or len(fn.cache) == 0:
                 continue
-            first_instr = fn.cache[0]
-            first_instr.before.insert(0, InstrumentedInstruction("paciasp"))
+            sec_instr = fn.cache[0]
+            sec_instr.instrument_before(InstrumentedInstruction("\tpaciasp"), 0) #f".L{sec_instr.address}:\n.LC{sec_instr.address}"), 0)
             #NOTE Wrong assumption: ret is always the last instruction.
             for instruction in fn.cache:
                 if "ret" == instruction.mnemonic:
-                    instruction.before.insert(0, InstrumentedInstruction("autiasp"))
+                    instruction.instrument_before(InstrumentedInstruction("\tautiasp"), 0)
 
-        #NOTE First check for the 
-        for _, fn in self.rewriter.container.functions.items():
-            if fn.name in ["_start", "main", "close_stdout"] or len(fn.cache) == 0:
-                continue
-            first_instr = fn.cache[0]
-            first_instr.before.insert(0, InstrumentedInstruction(".quad 0xbaddcafe"))
 
         for _, fn in self.rewriter.container.functions.items():
 
             for idx, instruction in enumerate(fn.cache):
-                if "b" == instruction.mnemonic and not \
-                    fn.start < instruction.cs.operands[0].imm < fn.start + fn.sz:
-# branch outside function, skip first 8 bytes of known value
-                    instruction.op_str += "+8"
-                if "bl" == instruction.mnemonic: # direct call, must skip first 8 bytes of known value
-                    if "LC" in instruction.op_str: # exclude imports
-                        instruction.op_str += "+8"
+                #if "b" == instruction.mnemonic and not \
+                #    fn.start < instruction.cs.operands[0].imm < fn.start + fn.sz:
+                #    #NOTE branch outside function, skip first 8 bytes of known value
+                #    if "LC" in instruction.op_str: # exclude imports / shared library
+                #        instruction.op_str += "+8"
+                #if "bl" == instruction.mnemonic: # direct call, must skip first 8 bytes of known value
+                #    if "LC" in instruction.op_str: # exclude imports / shared library
+                #        instruction.op_str += "+8"
                 if "blr" == instruction.mnemonic: # indirect call, must skip AND check known value
                     free_registers = fn.analysis['free_registers'][idx]
                     iinstr = self.get_blr_instrumentation(instruction, idx, free_registers, is_direct_call=False)
