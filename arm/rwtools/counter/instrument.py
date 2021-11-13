@@ -1,6 +1,6 @@
 from archinfo import ArchAArch64
 from collections import defaultdict
-from arm.librw.container import (DataCell, InstrumentedInstruction, DataSection,
+from arm.librw.container import (DataCell, InstrumentedInstruction, Section,
                              Function)
 from arm.librw.util.logging import *
 from arm.librw.container import INSTR_SIZE
@@ -19,18 +19,30 @@ class Instrument():
             if reg.general_purpose:
                 self.regmap[reg.name] = reg.subregisters[0][0]
 
+    def count_two(self, instruction, idx, free):
+        enter_lbl = "COUNTER2_%x" % (instruction.address)
+
+        instrumentation = """
+        stp x7, x8, [sp, -16]! // save x7, x8
+
+        // build a pointer in x8 to .counted
+        adrp x8, .counted2
+        add x8, x8, :lo12:.counted2
+
+        // add 1 to .counted2
+        ldr x7, [x8]
+        add x7, x7, 1
+        str x7, [x8]
+
+        ldp x7, x8, [sp], 16  // load back x7 and x8
+        """
+        comment = "{}: {}".format(str(instruction), str(free))
+        return InstrumentedInstruction(instrumentation, enter_lbl, comment)
 
 
-    def get_mem_instrumentation(self, instruction, idx, free):
+
+    def count_one(self, instruction, idx, free):
         enter_lbl = "COUNTER_%x" % (instruction.address)
-
-        # Save register x8 (syscall number) and x0 (syscall result)
-        # instrumentation = """
-        # stp x0, x8, [sp, -16]!
-        # movz x8, 0x103
-        # svc 0
-        # ldp x0, x8, [sp], 16
-        # """
 
         instrumentation = """
         stp x7, x8, [sp, -16]! // save x7, x8
@@ -46,9 +58,7 @@ class Instrument():
 
         ldp x7, x8, [sp], 16  // load back x7 and x8
         """
-
         comment = "{}: {}".format(str(instruction), str(free))
-
         return InstrumentedInstruction(instrumentation, enter_lbl, comment)
 
 
@@ -57,25 +67,32 @@ class Instrument():
         for faddr, fn in self.rewriter.container.functions.items():
             for idx, instruction in enumerate(fn.cache):
 
-                if any("adrp" in str(x) for x in instruction.before):
+                # if any("adrp" in str(x) for x in instruction.before):
+                if "br"  in instruction.mnemonic:
                     free_registers = fn.analysis['free_registers'][idx]
-                    iinstr = self.get_mem_instrumentation(instruction, idx, free_registers)
+                    iinstr = self.count_one(instruction, idx, free_registers)
                     instruction.instrument_before(iinstr)
 
-        ds = DataSection(".counter", 0x100000, 0, None, flags="aw")
+                if "blr"  in instruction.mnemonic:
+                    free_registers = fn.analysis['free_registers'][idx]
+                    iinstr = self.count_two(instruction, idx, free_registers)
+                    instruction.instrument_before(iinstr)
+
+        ds = Section(".counter", 0x100000, 0, None, flags="aw")
         content = """
         .file: .string \"/tmp/countfile\"
         .perms: .string \"w\"
-        .format: .string \"%lld\\n\"
+        .format: .string \"br: %lld\\nblr: %lld\\n\"
         .align 3
         .counted: .quad 0x0
+        .counted2: .quad 0x0
         """
         ds.cache.append(DataCell.instrumented(content, 0))
-        self.rewriter.container.add_section(ds)
+        self.rewriter.container.add_data_section(ds)
 
 
 
-        ds = DataSection(".fini", 0x200000, 0, None)
+        ds = Section(".finiamola", 0x200000, 0, None, flags="ax")
         ds.align = 0
         instrumentation = """
         // build a pointer to .perms
@@ -92,6 +109,9 @@ class Instrument():
         // load .counted in x2
         adrp x2, .counted
         ldr x2, [x2, :lo12:.counted]
+        // load .counted in x3
+        adrp x3, .counted2
+        ldr x3, [x3, :lo12:.counted2]
 
         // build a pointer to .format
         adrp x1, .format
@@ -99,7 +119,13 @@ class Instrument():
 
         // fprintf( fopen("/tmp/countfile", "w"), "%lld", counted);
         bl fprintf
+
+        bl exit
         """
         ds.cache.append( DataCell.instrumented(instrumentation, 0))
-        self.rewriter.container.add_section(ds)
+        self.rewriter.container.add_data_section(ds)
+
+        self.rewriter.container.datasections[".fini_array"].cache.append(DataCell.instrumented(".quad .finiamola", 0))
+        f = self.rewriter.container.codesections[".fini"].functions[0]
+        self.rewriter.container.functions[f].cache[0].instrument_before(InstrumentedInstruction(instrumentation, 0))
 
