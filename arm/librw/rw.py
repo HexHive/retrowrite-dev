@@ -15,7 +15,16 @@ from arm.librw.util.arm_util import _is_jump_conditional, is_reg_32bits, get_64b
 from arm.librw.container import InstrumentedInstruction, Jumptable, TRAITOR_SECS
 from arm.librw.emulation import Path, Expr
 
-FAKE_ELF_BASE = 0x1000000
+# this needs to be not more than 128 MB (2^ 27)
+# right now it is 64 MB (2 ^ 26)
+FAKE_ELF_BASE = 0x4000000
+
+# if False, redirect every indirect branch to the landing pad,
+# with some minor additional overhead (recommended)
+# if True, some medium data flow analysis is conducted to detect
+# and symbolize jump tables. It works quite well but it is not 
+# guaranteed to find everything, and might lead to crashes in rare edge cases.
+detect_and_symbolize_switch_tables = False
 
 class Rewriter():
     GCC_FUNCTIONS = [ # functions added by the compiler. No use in rewriting them
@@ -210,9 +219,16 @@ class Rewriter():
                 if function.name in Rewriter.GCC_FUNCTIONS:
                     continue
                 skip = function.start - last_addr - 4
-                # if skip > 0: results.append(".skip 0x%x" % (skip))
-                for i in range(0, skip, 4):
-                    results.append("b .LC%x " % (last_addr + (i+4)))
+                if detect_and_symbolize_switch_tables:
+                    # if we symbolize jump tables, we know that the targets that will
+                    # land in the landing pad will only be indirect calls. So it does
+                    # not make sense to have every possible instruction in the landing pad.
+                    if skip > 0: results.append(".skip 0x%x" % (skip))
+                else:
+                    # if we don't detect jumptables, every single instruction inside .text
+                    # is a valid landing pad target. So we fill it with jumps
+                    for i in range(0, skip, 4):
+                        results.append("b .LC%x " % (last_addr + (i+4)))
                 last_addr = function.start
                 results.append("b .LC%x // %s" % (function.start, function.name))
 
@@ -320,7 +336,8 @@ class Symbolizer():
         self.symbolize_cf_transfer(container, context)
         # Symbolize remaining memory accesses
 
-        # self.symbolize_switch_tables(container, context) # not needed anymore due to jmptable landing
+        if detect_and_symbolize_switch_tables:
+            self.symbolize_switch_tables(container, context) # not needed anymore due to jmptable landing
         self.symbolize_mem_accesses(container, context)
 
 
@@ -1129,16 +1146,22 @@ class Symbolizer():
                     self._adjust_global_access(container, function, edx, inst)
 
                 if inst.mnemonic == "adr":
-                    self._adjust_global_access(container, function, edx, inst)
-                    orig_off = inst.cs.operands[1].imm
-                    orig_reg = inst.reg_writes()[0]
-                    inst.instrument_after(InstrumentedInstruction(f"add {orig_reg}, {orig_reg}, {orig_off & 0xfff}"))
+                    if detect_and_symbolize_switch_tables:
+                        value = inst.cs.operands[1].imm
+                        if value % 0x1000 == 0: # an adr to a page, probably same as adrp
+                            self._adjust_global_access(container, function, edx, inst)
+                        else:
+                            inst.op_str = inst.op_str.replace("#0x%x" % value, ".LC%x" % value)
+                    else:
+                        # we just make the adr as it would be an adrp
+                        # and rebase it against the landing pad. So in a jump table offsets
+                        # will be calculated against the landing pad, not the instrumented .text
+                        # and there's no need to symbolize those offsets.
+                        self._adjust_global_access(container, function, edx, inst)
+                        orig_off = inst.cs.operands[1].imm
+                        orig_reg = inst.reg_writes()[0]
+                        inst.instrument_after(InstrumentedInstruction(f"add {orig_reg}, {orig_reg}, {orig_off & 0xfff}"))
 
-                    # value = inst.cs.operands[1].imm
-                    # if value % 0x1000 == 0: # an adr to a page, probably same as adrp
-                        # self._adjust_global_access(container, function, edx, inst)
-                    # else:
-                        # inst.op_str = inst.op_str.replace("#0x%x" % value, ".LC%x" % value)
 
 
                 mem_access, _ = inst.get_mem_access_op()
