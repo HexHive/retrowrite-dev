@@ -67,6 +67,7 @@ class Rewriter():
         ".gnu.version",
         ".gnu_version_r",
         ".gnu.version_r",
+        ".tbss",
     ]
 
     literal_saves = 0
@@ -116,11 +117,6 @@ class Rewriter():
 
         if total_jumps_fixed:
             info(f"Fixed a total of {total_jumps_fixed} short jumps")
-
-        results = list()
-        for sec, section in sorted(
-                self.container.datasections.items(), key=lambda x: x[1].base):
-            results.append("%s" % (section))
 
         results = list()
         for sec, section in sorted(
@@ -203,7 +199,7 @@ class Rewriter():
                 results.append("%s" % (function))
 
 
-        # fake sections for trampolines
+        # fake sections for landing pad
         for section in self.container.codesections.values():
             results.append(f".section .fake{section.name}, \"ax\", @progbits")
             # results.append(".align 12") # removed to better fit sections
@@ -214,7 +210,9 @@ class Rewriter():
                 if function.name in Rewriter.GCC_FUNCTIONS:
                     continue
                 skip = function.start - last_addr - 4
-                if skip > 0: results.append(".skip 0x%x" % (skip))
+                # if skip > 0: results.append(".skip 0x%x" % (skip))
+                for i in range(0, skip, 4):
+                    results.append("b .LC%x " % (last_addr + (i+4)))
                 last_addr = function.start
                 results.append("b .LC%x // %s" % (function.start, function.name))
 
@@ -321,7 +319,8 @@ class Symbolizer():
 
         self.symbolize_cf_transfer(container, context)
         # Symbolize remaining memory accesses
-        self.symbolize_switch_tables(container, context)
+
+        # self.symbolize_switch_tables(container, context) # not needed anymore due to jmptable landing
         self.symbolize_mem_accesses(container, context)
 
 
@@ -1130,11 +1129,16 @@ class Symbolizer():
                     self._adjust_global_access(container, function, edx, inst)
 
                 if inst.mnemonic == "adr":
-                    value = inst.cs.operands[1].imm
-                    if value % 0x1000 == 0: # an adr to a page, probably same as adrp
-                        self._adjust_global_access(container, function, edx, inst)
-                    else:
-                        inst.op_str = inst.op_str.replace("#0x%x" % value, ".LC%x" % value)
+                    self._adjust_global_access(container, function, edx, inst)
+                    orig_off = inst.cs.operands[1].imm
+                    orig_reg = inst.reg_writes()[0]
+                    inst.instrument_after(InstrumentedInstruction(f"add {orig_reg}, {orig_reg}, {orig_off & 0xfff}"))
+
+                    # value = inst.cs.operands[1].imm
+                    # if value % 0x1000 == 0: # an adr to a page, probably same as adrp
+                        # self._adjust_global_access(container, function, edx, inst)
+                    # else:
+                        # inst.op_str = inst.op_str.replace("#0x%x" % value, ".LC%x" % value)
 
 
                 mem_access, _ = inst.get_mem_access_op()
@@ -1197,6 +1201,7 @@ class Symbolizer():
         if reloc_type == ENUM_RELOC_TYPE_AARCH64["R_AARCH64_RELATIVE"]:
             value = rel['addend']
             label = "0x%x" % value + " + .fake.elf_header"
+            print("CAZZO", hex(value), hex(rel['offset']))
             if int(value) in container.ignore_function_addrs:
                 return
             section.replace(rel['offset'], 8, label)
@@ -1241,6 +1246,27 @@ class Symbolizer():
         # Section specific relocation
         for secname, section in container.datasections.items():
             for rel in section.relocations:
+
+                # XXX: ?HERE
+                # IT'S THE WRONG SECTION
+
+
+
+                # XXX
+                # XXX
+                # XXX
+                # XXX
+                # XXX
+                # XXX
+                # XXX
+                # XXX
+                # XXX
+                # XXX
+                # XXX
+
+                # ITS NOT TBSS
+
+
                 self._handle_relocation(container, section, rel)
 
         # self.fix_got_section(container)
