@@ -2,8 +2,8 @@ from collections import defaultdict
 import struct
 
 from capstone import CS_OP_IMM, CS_OP_MEM, CS_GRP_JUMP, CS_OP_REG
+from capstone import CS_ARCH_ARM64, CS_MODE_ARM, CS_OPT_SYNTAX_ATT, Cs
 
-from . import disasm
 from arm.librw.util.logging import *
 from arm.librw.util.arm_util import non_clobbered_registers, memory_replace, argument_registers
 
@@ -23,6 +23,23 @@ TRAITOR_SECS = {
     ".interp",
     ".data.rel.ro",
 }
+
+def disasm_bytes(bytes, addr):
+    md = Cs(CS_ARCH_ARM64, CS_MODE_ARM)
+    md.syntax = CS_OPT_SYNTAX_ATT
+    md.detail = True
+    result = []
+    for ins in range(0, len(bytes), 4):
+        disasm = list(md.disasm(bytes[ins:ins+4], addr+ins))
+        if len(disasm):
+            result += disasm
+        else:
+            # the instruction is invalid, so we craft a fake "nop" (to make the rest of the code work)
+            # and we just overwrite it as data with a comment
+            fake_ins = InstructionWrapper(list(md.disasm(b"\x1f\x20\x03\xd5", addr+ins))[0]) # bytes for nop
+            fake_ins.mnemonic = ".quad %x // invalid instruction" % int.from_bytes(bytes[ins:ins+4], byteorder="little") # are we sure about 'little'? 
+            result += [fake_ins]
+    return result
 
 
 class SzPfx():
@@ -135,7 +152,7 @@ class Container():
                 if bytes[-4:] == b"\xc0\x03\x5f\xd6": break
                 # special case for _start, there is no ret, as it ends on the call to abort
                 if function.name == "_start":
-                    decoded = disasm.disasm_bytes(bytes[-4:], function.start + c)[0]
+                    decoded = disasm_bytes(bytes[-4:], function.start + c)[0]
                     target = decoded.operands[-1].imm
                     if decoded.mnemonic == "bl":
                         if target in self.plt  and self.plt[target] == "abort":
@@ -238,11 +255,15 @@ class Function():
     def set_instrumented(self):
         self.instrumented = True
 
+
     def disasm(self):
         assert not self.cache
-        for decoded in disasm.disasm_bytes(self.bytes, self.start):
-            ins = InstructionWrapper(decoded)
-            self.cache.append(ins)
+        for decoded in disasm_bytes(self.bytes, self.start):
+            if type(decoded) == InstructionWrapper:
+                # means the instruction is invalid and we fake crafted a nop
+                self.cache.append(decoded)
+            else:
+                self.cache.append(InstructionWrapper(decoded))
 
 
     def is_valid_instruction(self, address):

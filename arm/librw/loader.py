@@ -8,8 +8,7 @@ from elftools.elf.sections import SymbolTableSection
 from elftools.elf.relocation import RelocationSection
 from elftools.elf.constants import SH_FLAGS
 
-from .container import Container, Function, Section
-from .disasm import disasm_bytes
+from .container import Container, Function, Section, disasm_bytes
 from .rw import Rewriter
 
 from arm.librw.util.logging import *

@@ -1224,7 +1224,6 @@ class Symbolizer():
         if reloc_type == ENUM_RELOC_TYPE_AARCH64["R_AARCH64_RELATIVE"]:
             value = rel['addend']
             label = "0x%x" % value + " + .fake.elf_header"
-            print("CAZZO", hex(value), hex(rel['offset']))
             if int(value) in container.ignore_function_addrs:
                 return
             section.replace(rel['offset'], 8, label)
