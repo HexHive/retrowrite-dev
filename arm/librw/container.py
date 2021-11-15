@@ -5,6 +5,7 @@ from capstone import CS_OP_IMM, CS_OP_MEM, CS_GRP_JUMP, CS_OP_REG
 from capstone import CS_ARCH_ARM64, CS_MODE_ARM, CS_OPT_SYNTAX_ATT, Cs
 
 from arm.librw.util.logging import *
+import arm.librw.rw
 from arm.librw.util.arm_util import non_clobbered_registers, memory_replace, argument_registers
 
 INSTR_SIZE = 4
@@ -189,6 +190,8 @@ class Container():
 
     def section_of_address(self, addr):
         for section in list(self.datasections.values()) + list(self.codesections.values()):
+            if section.name in arm.librw.rw.Rewriter.IGNORE_SECTIONS: continue
+            if section.name in arm.librw.rw.Rewriter.TLS_SECTIONS: continue
             if section.base == 0: continue # ignore stuff such as .debug_info
             if section.base <= addr < section.base + section.sz:
                 return section
@@ -770,7 +773,7 @@ class Section():
 
         if cacheoff >= len(self.cache):
             critical("[x] Could not replace value in {} addr {}".format(self.name, address))
-            return
+            exit(1)
 
         self.cache[cacheoff].value = value
         self.cache[cacheoff].sz = sz

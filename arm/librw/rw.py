@@ -76,7 +76,11 @@ class Rewriter():
         ".gnu.version",
         ".gnu_version_r",
         ".gnu.version_r",
-        ".tbss",
+    ]
+
+    # thread-local storage sections. Need special handling.
+    TLS_SECTIONS = [
+        ".tbss"
     ]
 
     literal_saves = 0
@@ -130,7 +134,16 @@ class Rewriter():
         results = list()
         for sec, section in sorted(
                 self.container.datasections.items(), key=lambda x: x[1].base):
-            results.append("%s" % (section))
+            if not section.name in Rewriter.TLS_SECTIONS:
+                results.append("%s" % (section))
+            else:
+                results.append(f".section {section.name}, \"aT\", @nobits")
+                for i in range(section.sz // 8):
+                    results.append(".quad 0")
+                for i in range(section.sz % 8):
+                    results.append(".byte 0")
+
+
 
 
         # hash map stuff
