@@ -43,9 +43,9 @@ class Loader():
 
     def load_functions(self, fnlist):
         debug(f"Loading functions...")
-        section = self.elffile.get_section_by_name(".text")
-        data = section.data()
-        base = section['sh_addr']
+        text_section = self.elffile.get_section_by_name(".text")
+        data = text_section.data()
+        base = text_section['sh_addr']
         for faddr, fvalue in fnlist.items():
             self.container.section_of_address(faddr).functions += [faddr]
 
@@ -56,6 +56,19 @@ class Loader():
             bind = fvalue["bind"] if fixed_name not in ["main", "_init"] else "STB_GLOBAL" #main and _init should always be global
             function = Function(fixed_name, faddr, fvalue["sz"], bytes, bind)
             self.container.add_function(function)
+
+        # is it stripped? 
+        if len(fnlist) == 0: 
+            for sec in self.container.codesections:
+                if sec in [".plt"]: continue # plt needs to be regenerated, do not treat it as function
+                section = self.elffile.get_section_by_name(sec)
+                base = section["sh_addr"]
+                data = section.data()
+                function = Function(f"all_{sec}", base, len(data), data, "STB_GLOBAL")
+                self.container.codesections[sec].functions += [base]
+                self.container.add_function(function)
+
+
         # entrypoint = self.elffile.header.e_entry
         # startsize = 80
         # bytes = data[entrypoint - base:entrypoint - base + startsize]

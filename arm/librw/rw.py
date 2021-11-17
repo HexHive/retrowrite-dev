@@ -131,6 +131,13 @@ class Rewriter():
         if total_jumps_fixed:
             info(f"Fixed a total of {total_jumps_fixed} short jumps")
 
+
+        if self.container.loader.is_stripped():
+            text_section = self.container.loader.elffile.get_section_by_name(".text")
+            text_fun = self.container.functions[text_section["sh_addr"]]
+            start = self.container.loader.elffile.header["e_entry"]
+            text_fun.cache[(start - text_fun.start) // 4].instrument_before(InstrumentedInstruction(".globl _start\n_start:"))
+
         results = list()
         for sec, section in sorted(
                 self.container.datasections.items(), key=lambda x: x[1].base):
@@ -227,10 +234,16 @@ class Rewriter():
             # results.append(".align 12") # removed to better fit sections
             results.append(f".fake{section.name}_start:")
             last_addr = section.base - 4
+            if len(section.functions) == 1: # stripped binary maybe
+                if section.name == ".plt": continue
+                for i in range(0, section.sz, 4):
+                    results.append("b .LC%x " % (section.base + i))
+                continue
             for faddr in sorted(section.functions):
                 function = self.container.functions[faddr]
                 if function.name in Rewriter.GCC_FUNCTIONS:
                     continue
+                print(function.name)
                 skip = function.start - last_addr - 4
                 if detect_and_symbolize_switch_tables:
                     # if we symbolize jump tables, we know that the targets that will
@@ -247,6 +260,16 @@ class Rewriter():
 
         # we need one fake section just to represent the copy of the base address of the binary
         results.append(f".section .fake.elf_header, \"a\", @progbits") 
+
+
+        # add weak symbols
+        from elftools.elf.sections import SymbolTableSection
+        for section in self.container.loader.elffile.iter_sections():
+            if isinstance(section, SymbolTableSection):
+                for symbol in section.iter_symbols():
+                    if "@@" in symbol.name: continue
+                    if symbol['st_info']['bind'] == "STB_WEAK":
+                        results.append(".weak " + symbol.name)
 
 
         # here we insert the list of the original addresses of the sections
@@ -411,8 +434,6 @@ class Symbolizer():
                         instruction.op_str = "{}".format(name)
                         if any(exit in name for exit in ["abort", "exit"]): #XXX: fix this ugly hack
                             function.nexts[inst_idx] = []
-                        if name == "__gmon_start__":
-                            instruction.before += [InstrumentedInstruction(".weak __gmon_start__")]
                     else:
                         print(hex(target))
                         print(instruction)

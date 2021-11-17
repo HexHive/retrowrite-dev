@@ -205,7 +205,7 @@ if __name__ == "__main__":
         print("It looks like %s is not position independent" % args.bin)
         print("If you really want to continue, because you think retrowrite has made a mistake, pass --ignore-no-pie.")
         sys.exit(1)
-    if loader.is_stripped() == True and args.ignore_stripped == False:
+    if loader.is_stripped() == True and args.ignore_stripped == False and arch == "x86":
         print("RetroWrite requires a non-stripped executable.")
         print("It looks like %s is stripped" % args.bin)
         print("If you really want to continue, because you think retrowrite has made a mistake, pass --ignore-stripped.")
