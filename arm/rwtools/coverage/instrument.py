@@ -228,7 +228,7 @@ str x0, [x1]
 //ldr x5, =__afl_temp
 ldr x5, =.AFL_STATUS_FLAGS
 mov x0, #{FORKSRV_FD_1}
-mov x1, x5
+ldr x1, =.AFL_STATUS_FLAGS
 mov x2, #4
 bl write
 
@@ -239,12 +239,11 @@ bne __afl_fork_resume
 .globl __afl_fork_wait_loop
 __afl_fork_wait_loop:
 mov x0, #{FORKSRV_FD}
-mov x1, x5
+ldr x1, =.AFL_STATUS_FLAGS
 mov x2, #4
 bl read
 
 
-adr x5, __afl_temp
 
 cmp x0, #4
 bne __afl_die
@@ -254,8 +253,7 @@ cmp x0, #0
 beq __afl_fork_resume  // I am the child
 blt __afl_die  // useless
 ldr x1, =__afl_fork_pid // I am the father
-str x0, [x1]
-mov x6, x0
+str x0, [x1]  // store pid in __afl_fork_pid
 mov x0, #{FORKSRV_FD_1}
 mov x2, #4
 bl write
@@ -266,13 +264,13 @@ bne __afl_die
 
 ldr x0, =__afl_fork_pid
 ldr x0, [x0]
-mov x1, x5
+adr x1, __afl_temp
 mov x2, 0
 bl waitpid
 cmp x0, #0
 blt __afl_die
 mov x0, #{FORKSRV_FD_1}
-mov x1, x5
+adr x1, __afl_temp
 mov x2, #4
 bl write
 cmp x0, #4
