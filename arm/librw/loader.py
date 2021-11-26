@@ -60,7 +60,7 @@ class Loader():
         # is it stripped? 
         if len(fnlist) == 0: 
             for sec in self.container.codesections:
-                if sec in [".plt"]: continue # plt needs to be regenerated, do not treat it as function
+                # if sec in [".plt"]: continue # plt needs to be regenerated, do not treat it as function
                 section = self.elffile.get_section_by_name(sec)
                 base = section["sh_addr"]
                 data = section.data()

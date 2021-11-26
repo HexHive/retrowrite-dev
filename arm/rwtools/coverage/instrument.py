@@ -64,6 +64,7 @@ class Instrument():
 
                 if instruction.mnemonic.startswith("b") and idx+1 < len(fn.cache):
                     next_instruction = fn.cache[idx+1] # we need to instrument the instruction after the branch
+                    if "invalid" in str(next_instruction): continue
                     free_registers = fn.analysis['free_registers'][idx+1]
                     iinstr = self.get_mem_instrumentation(next_instruction, idx+1, free_registers)
                     next_instruction.instrument_before(iinstr)
@@ -264,13 +265,17 @@ bne __afl_die
 
 ldr x0, =__afl_fork_pid
 ldr x0, [x0]
-adr x1, __afl_temp
+// adr x1, __afl_temp
+adrp x1, __afl_temp
+add x1, x1, :lo12:__afl_temp
 mov x2, 0
 bl waitpid
 cmp x0, #0
 blt __afl_die
 mov x0, #{FORKSRV_FD_1}
-adr x1, __afl_temp
+// adr x1, __afl_temp
+adrp x1, __afl_temp
+add x1, x1, :lo12:__afl_temp
 mov x2, #4
 bl write
 cmp x0, #4

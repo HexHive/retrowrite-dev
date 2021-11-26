@@ -38,7 +38,7 @@ def disasm_bytes(bytes, addr):
             # the instruction is invalid, so we craft a fake "nop" (to make the rest of the code work)
             # and we just overwrite it as data with a comment
             fake_ins = InstructionWrapper(list(md.disasm(b"\x1f\x20\x03\xd5", addr+ins))[0]) # bytes for nop
-            fake_ins.mnemonic = ".quad %x // invalid instruction" % int.from_bytes(bytes[ins:ins+4], byteorder="little") # are we sure about 'little'? 
+            fake_ins.mnemonic = ".quad 0x%x // invalid instruction" % int.from_bytes(bytes[ins:ins+4], byteorder="little") # are we sure about 'little'? 
             result += [fake_ins]
     return result
 
