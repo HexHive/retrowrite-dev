@@ -110,7 +110,7 @@ def assemble(filename, outfile):
     for sec, addr in secs.items():
         wlflags += ["--section-start="+sec+"="+addr]
     wlflags = "-Wl," + ",".join(wlflags)
-    wlflags += ",--no-check-sections"
+    # wlflags += ",--no-check-sections"
 
     pie = "-no-pie" if any("NOPIE" in x for x in last_lines) else "-pie"
 
