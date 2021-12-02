@@ -68,8 +68,8 @@ class Rewriter():
         ".dynsym",
         ".dynstr",
         ".dynamic",
-        ".eh_frame_hdr",
-        ".eh_frame",
+        # ".eh_frame_hdr",
+        # ".eh_frame",
         ".rela.plt",
         ".rela.dyn",
         ".gnu_version",
@@ -304,9 +304,12 @@ class Rewriter():
             for sec in self.container.codesections.values():
                 if "text" in sec.name:
                     force_section_addr(sec.name, 2*FAKE_ELF_BASE + sec.base)
+                if ".plt" in sec.name:
+                    force_section_addr(sec.name, int(1.1*FAKE_ELF_BASE) + sec.base)
                 else:
                     force_section_addr(sec.name, FAKE_ELF_BASE + sec.base)
             results.append(f"// SECTION: .dynamic - {hex(2*FAKE_ELF_BASE)}")
+            results.append(f"// SECTION: .rela.plt - {hex(int(1.5*FAKE_ELF_BASE))}")
             results.append(f"// NOPIE")
 
 

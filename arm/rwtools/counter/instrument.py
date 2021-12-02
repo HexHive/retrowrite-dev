@@ -36,7 +36,7 @@ class Instrument():
 
         ldp x7, x8, [sp], 16  // load back x7 and x8
         """
-        comment = "{}: {}".format(str(instruction), str(free))
+        comment = "{}: ".format(str(instruction))
         return InstrumentedInstruction(instrumentation, enter_lbl, comment)
 
 
@@ -58,7 +58,7 @@ class Instrument():
 
         ldp x7, x8, [sp], 16  // load back x7 and x8
         """
-        comment = "{}: {}".format(str(instruction), str(free))
+        comment = "{}: ".format(str(instruction))
         return InstrumentedInstruction(instrumentation, enter_lbl, comment)
 
 
@@ -69,19 +69,17 @@ class Instrument():
 
                 # if any("adrp" in str(x) for x in instruction.before):
                 if "br"  in instruction.mnemonic:
-                    free_registers = fn.analysis['free_registers'][idx]
-                    iinstr = self.count_one(instruction, idx, free_registers)
+                    iinstr = self.count_one(instruction, idx, None)
                     instruction.instrument_before(iinstr)
 
                 if "blr"  in instruction.mnemonic:
-                    free_registers = fn.analysis['free_registers'][idx]
-                    iinstr = self.count_two(instruction, idx, free_registers)
+                    iinstr = self.count_two(instruction, idx, None)
                     instruction.instrument_before(iinstr)
 
         ds = Section(".counter", 0x100000, 0, None, flags="aw")
         content = """
         .file: .string \"/tmp/countfile\"
-        .perms: .string \"w\"
+        .perms: .string \"a\"
         .format: .string \"br: %lld\\nblr: %lld\\n\"
         .align 3
         .counted: .quad 0x0
@@ -117,7 +115,7 @@ class Instrument():
         adrp x1, .format
         add x1, x1, :lo12:.format
 
-        // fprintf( fopen("/tmp/countfile", "w"), "%lld", counted);
+        // fprintf( fopen("/tmp/countfile", "a+"), "%lld", counted);
         bl fprintf
 
         bl exit

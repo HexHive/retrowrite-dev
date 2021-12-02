@@ -65,7 +65,7 @@ class Instrument():
                 if instruction.mnemonic.startswith("b") and idx+1 < len(fn.cache):
                     next_instruction = fn.cache[idx+1] # we need to instrument the instruction after the branch
                     if "invalid" in str(next_instruction): continue
-                    free_registers = fn.analysis['free_registers'][idx+1]
+                    free_registers = fn.analysis['free_registers'][idx+1] if fn.analysis else None
                     iinstr = self.get_mem_instrumentation(next_instruction, idx+1, free_registers)
                     next_instruction.instrument_before(iinstr)
 
