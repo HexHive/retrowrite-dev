@@ -365,7 +365,7 @@ class Instrument():
                 for acsz, instruction, midx, free_registers, is_leaf, bool_load in to_instrument:
                     debug(f"{instruction} --- acsz: {acsz}, load: {bool_load}")
                     iinstr = self.get_mem_instrumentation(
-                        acsz, instruction, midx, free_registers, is_leaf, bool_load, rbase_reg)
+                        acsz, instruction, midx, [], is_leaf, bool_load, rbase_reg)
                     instruction.instrument_before(iinstr)
 
 
