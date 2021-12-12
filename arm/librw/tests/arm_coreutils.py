@@ -50,6 +50,7 @@ def check_files():
 
 
 def run_test():
+    cmd("mkdir -p /tmp/retrowrite")
     for test in test_bins:
         binary = test[0]
         binary_path = coreutils_path + binary
@@ -57,15 +58,15 @@ def run_test():
         print(f"[{BLUE}TEST{CLEAR}] Testing {binary} ... ", end="")
         sys.stdout.flush()
 
+
         #retrowriting
-        print(cmd(f"./retrowrite --asan {binary_path} /tmp/{binary}_rw.s"))
-        print(cmd(f"gcc -g -fsanitize=address -nostartfiles /tmp/{binary}_rw.s -o /tmp/{binary}_rw.out"))
+        output_1 = cmd(f"./retrowrite --asan {binary_path} /tmp/retrowrite/{binary}_rw.s")
+        output_2 = cmd(f"./retrowrite -a  /tmp/retrowrite/{binary}_rw.s /tmp/retrowrite/{binary}_rw.out")
 
         #exec with each possible arg
         for args in test[1]:
-            output_rw = cmd(f"ASAN_OPTIONS=detect_leaks=0 /tmp/{binary}_rw.out {args}")
+            output_rw = cmd(f"ASAN_OPTIONS=detect_leaks=0 /tmp/retrowrite/{binary}_rw.out {args}")
             output    = cmd(f"ASAN_OPTIONS=detect_leaks=0 {binary_path} {args}")
-            print(output, output_rw)
             if output != output_rw:
                 critical(f"Output of {binary}_rw: {output_rw}")
                 critical(f"Output of {binary}: {output}")
@@ -73,6 +74,8 @@ def run_test():
 
         print(f"{GREEN}PASSED{CLEAR}")
 
+        # cleanup
+        cmd(f"rm /tmp/retrowrite/{binary}_rw.out /tmp/retrowrite/{binary}_rw.s")
 
 
 if __name__ == "__main__":

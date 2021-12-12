@@ -12,6 +12,7 @@ from arm.librw.analysis.stackframe import StackFrameAnalysis
 
 
 leaf_functions = {}
+cached_reg_usage = {}
 
 class RegisterAnalysis(object):
     KEY = 'free_registers'
@@ -106,14 +107,6 @@ class RegisterAnalysis(object):
             for subr in reg.subregisters:
                 self.subregs[subr[0]] = rn
 
-    def compute_reg_set_closure(self, regl):
-        regset = set(regl)
-        for item in regl:
-            clist = self.closure_list[item]
-            if clist:
-                regset.update(clist)
-        return regset
-
     def full_register_of(self, regname):
         return self.subregs.get(regname, None)
 
@@ -129,15 +122,6 @@ class RegisterAnalysis(object):
                 else:
                     return super(DecimalEncoder, self).default(o)
         info("Starting free registers analysis...")
-
-        # c2 = {}
-        # for addr, function in container.functions.items():
-            # if any([s in function.name for s in ["perl", "Perl"]]):  #XXX: remove this
-                # pass
-            # else:
-                # c2[addr] = function
-
-        # print(len(c2))
 
         for addr, function in container.functions.items():
             if function.analysis.get(StackFrameAnalysis.KEY_IS_LEAF, False):
@@ -158,9 +142,9 @@ class RegisterAnalysis(object):
             function.analysis[RegisterAnalysis.KEY] = ra.free_regs
 
     def analyze_function(self, container, function):
-        # we will do a reverse-topological order visit to understand
-        # which registers are free in a single pass
+        global cached_reg_usage
         changed = True
+        cached_reg_usage = {}
 
         i = 0
         while changed:
@@ -209,17 +193,23 @@ class RegisterAnalysis(object):
                     # change = True
             # iter += 1
 
+    def get_reg_usage(self, container, function, instruction_idx):
+        if instruction_idx in cached_reg_usage:
+            return cached_reg_usage[instruction_idx]
+
+        current_instruction = function.cache[instruction_idx]
+        reguses = set([x.replace("w","x") for x in current_instruction.reg_reads_common()])
+        regwrites = set([x.replace("w","x") for x in current_instruction.reg_writes_common()])
+
+        cached_reg_usage[instruction_idx] = (reguses, regwrites)
+        return reguses, regwrites
+
 
     def analyze_instruction(self, container, function, instruction_idx):
         current_instruction = function.cache[instruction_idx]
         nexts = function.nexts[instruction_idx]
 
-        reguses = self.reg_pool.intersection(
-                ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_reads_common()]
-        )
-        reguses = self.compute_reg_set_closure(reguses)
-
-        regwrites = ["x"+x[1:] if x[0] == "w" else x for x in current_instruction.reg_writes_common()]
+        reguses, regwrites = self.get_reg_usage(container, function, instruction_idx)
 
 
         # if there is a call to a leaf function, do not
@@ -227,7 +217,7 @@ class RegisterAnalysis(object):
         if current_instruction.mnemonic == "bl":
             target = current_instruction.cs.operands[-1].imm
             if target in leaf_functions:
-                regwrites = []
+                regwrites = set()
         # if it's not a call but a jump that leaves the function,
         # we assume it's a trampoline and go to the next instruction.
         # elif current_instruction.cf_leaves_fn: 
@@ -236,8 +226,7 @@ class RegisterAnalysis(object):
 
 
 
-        regwrites = self.compute_reg_set_closure(regwrites)
-        regwrites = set(regwrites).difference(reguses)
+        regwrites = regwrites.difference(reguses)
 
         # I present to you, the following:
         # a whole big bunch of capstone bugs :)
@@ -259,27 +248,12 @@ class RegisterAnalysis(object):
                 # reguses = reguses.union(
                     # self.used_regs[nexti].difference(regwrites))
 
-        # if current_instruction.address == 0x177e0c:
-            # print(reguses)
-            # print(current_instruction.reg_reads_common())
-            # import IPython; IPython.embed() 
-            # for nexti in nexts:
-                # instruction = function.cache[nexti]
-                # print(instruction)
-                # if nexti not in self.used_regs: continue
-                # print(self.used_regs[nexti])
 
-        reguses = self.compute_reg_set_closure(reguses)
         if self.used_regs[instruction_idx] != reguses:
             self.used_regs[instruction_idx] = reguses
             return True
         return False
 
-        # if reguses != self.used_regs[instruction_idx]:
-            # self.used_regs[instruction_idx] = reguses
-            # return True
-
-        # return False
 
     # def analyze_function(self, function):
         # change = False
