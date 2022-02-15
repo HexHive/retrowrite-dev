@@ -46,19 +46,20 @@ class Loader():
         text_section = self.elffile.get_section_by_name(".text")
         data = text_section.data()
         base = text_section['sh_addr']
-        for faddr, fvalue in fnlist.items():
-            self.container.section_of_address(faddr).functions += [faddr]
+        if not self.is_stripped(): # fnlist is not empty
+            for faddr, fvalue in fnlist.items():
+                self.container.section_of_address(faddr).functions += [faddr]
 
-            section_offset = faddr - base
-            bytes = data[section_offset:section_offset + fvalue["sz"]]
+                section_offset = faddr - base
+                bytes = data[section_offset:section_offset + fvalue["sz"]]
 
-            fixed_name = fvalue["name"].replace("@", "_")
-            bind = fvalue["bind"] if fixed_name not in ["main", "_init"] else "STB_GLOBAL" #main and _init should always be global
-            function = Function(fixed_name, faddr, fvalue["sz"], bytes, bind)
-            self.container.add_function(function)
+                fixed_name = fvalue["name"].replace("@", "_")
+                bind = fvalue["bind"] if fixed_name not in ["main", "_init"] else "STB_GLOBAL" #main and _init should always be global
+                function = Function(fixed_name, faddr, fvalue["sz"], bytes, bind)
+                self.container.add_function(function)
 
         # is it stripped? 
-        if len(fnlist) == 0: 
+        else:
             for sec in self.container.codesections:
                 # if sec in [".plt"]: continue # plt needs to be regenerated, do not treat it as function
                 section = self.elffile.get_section_by_name(sec)
